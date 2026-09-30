@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
+import { Route as AppAjustesRouteImport } from './routes/_app/ajustes'
 import { Route as AuthCallbackRouteImport } from './routes/auth/callback'
 
 const AppRoute = AppRouteImport.update({
@@ -28,6 +29,11 @@ const AppIndexRoute = AppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppRoute,
 } as any)
+const AppAjustesRoute = AppAjustesRouteImport.update({
+  id: '/ajustes',
+  path: '/ajustes',
+  getParentRoute: () => AppRoute,
+} as any)
 const AuthCallbackRoute = AuthCallbackRouteImport.update({
   id: '/auth/callback',
   path: '/auth/callback',
@@ -37,10 +43,12 @@ const AuthCallbackRoute = AuthCallbackRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/login': typeof LoginRoute
+  '/ajustes': typeof AppAjustesRoute
   '/auth/callback': typeof AuthCallbackRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
+  '/ajustes': typeof AppAjustesRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/': typeof AppIndexRoute
 }
@@ -48,15 +56,22 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
+  '/_app/ajustes': typeof AppAjustesRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/_app/': typeof AppIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/auth/callback'
+  fullPaths: '/' | '/login' | '/ajustes' | '/auth/callback'
   fileRoutesByTo: FileRoutesByTo
-  to: '/login' | '/auth/callback' | '/'
-  id: '__root__' | '/_app' | '/login' | '/auth/callback' | '/_app/'
+  to: '/login' | '/ajustes' | '/auth/callback' | '/'
+  id:
+    | '__root__'
+    | '/_app'
+    | '/login'
+    | '/_app/ajustes'
+    | '/auth/callback'
+    | '/_app/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -88,6 +103,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/ajustes': {
+      id: '/_app/ajustes'
+      path: '/ajustes'
+      fullPath: '/ajustes'
+      preLoaderRoute: typeof AppAjustesRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/auth/callback': {
       id: '/auth/callback'
       path: '/auth/callback'
@@ -99,10 +121,12 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppRouteChildren {
+  AppAjustesRoute: typeof AppAjustesRoute
   AppIndexRoute: typeof AppIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppAjustesRoute: AppAjustesRoute,
   AppIndexRoute: AppIndexRoute,
 }
 
