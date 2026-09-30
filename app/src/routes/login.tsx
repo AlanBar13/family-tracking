@@ -3,11 +3,14 @@ import { createFileRoute } from '@tanstack/react-router'
 import { clienteNavegador } from '@/lib/supabase/navegador'
 import { mensajeNoAutorizado } from '@/lib/errores'
 
-type BusquedaLogin = { error?: 'no_autorizado' | 'sesion'; correo?: string }
+type BusquedaLogin = { error?: 'no_autorizado' | 'sesion' | 'fallo'; correo?: string }
 
 export const Route = createFileRoute('/login')({
   validateSearch: (s: Record<string, unknown>): BusquedaLogin => ({
-    error: s.error === 'no_autorizado' || s.error === 'sesion' ? s.error : undefined,
+    error:
+      s.error === 'no_autorizado' || s.error === 'sesion' || s.error === 'fallo'
+        ? s.error
+        : undefined,
     correo: typeof s.correo === 'string' ? s.correo : undefined,
   }),
   component: Login,
@@ -21,9 +24,11 @@ function Login() {
   const mensaje =
     error === 'no_autorizado'
       ? mensajeNoAutorizado(correo ?? 'que usaste')
-      : error === 'sesion' || fallo
-        ? 'No se pudo iniciar sesión. Intenta de nuevo.'
-        : null
+      : error === 'sesion'
+        ? 'Tu sesión expiró. Vuelve a entrar.'
+        : error === 'fallo' || fallo
+          ? 'No se pudo iniciar sesión. Intenta de nuevo.'
+          : null
 
   async function entrar() {
     setCargando(true)

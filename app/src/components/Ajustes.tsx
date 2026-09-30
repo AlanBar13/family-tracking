@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
-import { leerErrorApp } from '@/lib/errores'
+import { useNavigate } from '@tanstack/react-router'
+import { destinoLogin, traducirError } from '@/lib/errores-ui'
 import type { Tipo } from '@/lib/ajustes'
 import {
   activarElemento,
@@ -25,6 +26,7 @@ export function AjustesPantalla({ inicial }: Readonly<{ inicial: Ajustes }>) {
   const [datos, setDatos] = useState(inicial)
   const [error, setError] = useState<{ seccion: string; mensaje: string } | null>(null)
   const [ocupado, setOcupado] = useState(false)
+  const navigate = useNavigate()
   const soloLectura = !datos.esAdmin
 
   /** Corre una acción del servidor; si falla, el mensaje queda junto a su sección. */
@@ -35,7 +37,9 @@ export function AjustesPantalla({ inicial }: Readonly<{ inicial: Ajustes }>) {
       setDatos(await accion())
       return true
     } catch (e) {
-      setError({ seccion, mensaje: leerErrorApp(e).mensaje })
+      const login = destinoLogin(e)
+      if (login) void navigate(login)
+      else setError({ seccion, mensaje: traducirError(e).mensaje })
       return false
     } finally {
       setOcupado(false)

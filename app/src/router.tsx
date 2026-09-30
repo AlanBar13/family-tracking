@@ -1,4 +1,5 @@
 import { Link, createRouter } from '@tanstack/react-router'
+import { PantallaError } from '@/components/PantallaError'
 import { routeTree } from './routeTree.gen'
 
 function NoEncontrado() {
@@ -18,6 +19,7 @@ export function getRouter() {
     routeTree,
     scrollRestoration: true,
     defaultNotFoundComponent: NoEncontrado,
+    defaultErrorComponent: PantallaError,
   })
 }
 

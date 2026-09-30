@@ -7,7 +7,7 @@ import {
 import { Lista } from '@/components/Lista'
 import { PanelGasto } from '@/components/PanelGasto'
 import { Resumen } from '@/components/Resumen'
-import { leerErrorApp } from '@/lib/errores'
+import { destinoLogin } from '@/lib/errores-ui'
 import { esMesValido } from '@/lib/fechas'
 import { etiquetaMes, mesRelativo } from '@/lib/resumen'
 import { obtenerEstado } from '@/server/gastos'
@@ -32,12 +32,12 @@ export const Route = createFileRoute('/_app/')({
     try {
       return await obtenerEstado({ data: { mes: deps.mes } })
     } catch (e) {
-      if (leerErrorApp(e).codigo === 'NO_AUTENTICADO') throw redirect({ to: '/login' })
+      const login = destinoLogin(e)
+      if (login) throw redirect(login)
       throw e
     }
   },
   component: Inicio,
-  errorComponent: ErrorInicio,
 })
 
 const boton =
@@ -107,24 +107,5 @@ function Inicio() {
         />
       )}
     </>
-  )
-}
-
-function ErrorInicio({ error }: Readonly<{ error: unknown }>) {
-  const router = useRouter()
-  return (
-    <section
-      role="alert"
-      className="rounded-tarjeta bg-tarjeta p-4 shadow-tarjeta"
-    >
-      <p className="text-peligro">{leerErrorApp(error).mensaje}</p>
-      <button
-        type="button"
-        onClick={() => router.invalidate()}
-        className="mt-3 font-medium text-acento"
-      >
-        Reintentar
-      </button>
-    </section>
   )
 }

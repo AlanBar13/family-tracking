@@ -13,12 +13,12 @@ export const Route = createFileRoute('/auth/callback')({
             headers: { Location: new URL(ruta, url).href },
           })
 
-        if (!code) return destino('/login?error=sesion')
+        if (!code) return destino('/login?error=fallo')
 
         const { error } = await crearClienteServidor().auth.exchangeCodeForSession(code)
         if (error) {
           console.error('exchangeCodeForSession falló', error)
-          return destino('/login?error=sesion')
+          return destino('/login?error=fallo')
         }
         return destino('/')
       },

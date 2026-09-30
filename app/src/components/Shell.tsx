@@ -65,7 +65,7 @@ export function Shell({
                 key={v}
                 to="/"
                 role="tab"
-                aria-selected={vista === v}
+                aria-selected={(vista ?? 'resumen') === v}
                 search={(s) => ({ ...s, vista: v === 'lista' ? v : undefined })}
                 className="flex-1 py-2 text-center text-sm font-medium text-suave aria-selected:text-acento"
               >

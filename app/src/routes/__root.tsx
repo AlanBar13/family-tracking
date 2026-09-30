@@ -2,6 +2,8 @@ import type { ReactNode } from 'react'
 import { HeadContent, Outlet, Scripts, createRootRoute } from '@tanstack/react-router'
 import appCss from '@/styles.css?url'
 import { ActualizacionPwa } from '@/components/ActualizacionPwa'
+import { FranjaOffline } from '@/components/FranjaOffline'
+import { PantallaError } from '@/components/PantallaError'
 
 export const Route = createRootRoute({
   head: () => ({
@@ -22,16 +24,11 @@ export const Route = createRootRoute({
       { rel: 'apple-touch-icon', href: '/icons/apple-touch-icon.png' },
     ],
   }),
-  component: RootComponent,
+  // El documento va en shellComponent para que el límite de error raíz también lo tenga.
+  shellComponent: RootDocument,
+  component: Outlet,
+  errorComponent: ({ error }) => <PantallaError error={error} recargar />,
 })
-
-function RootComponent() {
-  return (
-    <RootDocument>
-      <Outlet />
-    </RootDocument>
-  )
-}
 
 function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
   return (
@@ -48,6 +45,7 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
       </head>
       <body>
         {children}
+        <FranjaOffline />
         <ActualizacionPwa />
         <Scripts />
       </body>

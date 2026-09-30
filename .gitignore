@@ -9,6 +9,7 @@ node_modules
 dist
 coverage
 playwright-report
+app/e2e/.auth
 test-results
 supabase/.temp
 supabase/.branches

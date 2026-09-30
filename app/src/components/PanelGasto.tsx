@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
-import { leerErrorApp } from '@/lib/errores'
+import { useNavigate } from '@tanstack/react-router'
+import { destinoLogin, traducirError } from '@/lib/errores-ui'
+import { FranjaOffline } from './FranjaOffline'
+import { fetchConTimeout, TIMEOUT_TICKET } from '@/lib/fetch-timeout'
 import { MENSAJES } from '@/lib/mensajes'
 import { aErrorVisible, gastoEntrada } from '@/lib/validacion'
 import { comprimirImagen } from '@/lib/comprimir-imagen'
@@ -41,6 +44,7 @@ export function PanelGasto({ estado, editarId, onCerrar, onListo }: Props) {
   const montoRef = useRef<HTMLInputElement>(null)
   const avisoRef = useRef<HTMLParagraphElement>(null)
   const enCurso = useRef(false)
+  const navigate = useNavigate()
   useModal(dialogo)
 
   const [monto, setMonto] = useState(gasto ? String(gasto.monto) : '')
@@ -70,6 +74,13 @@ export function PanelGasto({ estado, editarId, onCerrar, onListo }: Props) {
     if (error) avisoRef.current?.scrollIntoView({ block: 'nearest' })
   }, [error])
 
+  /** Error del servidor o de red: sesión vencida → login; lo demás, mensaje junto al formulario. */
+  function fallar(e: unknown) {
+    const login = destinoLogin(e)
+    if (login) void navigate(login)
+    else setError(traducirError(e).mensaje)
+  }
+
   async function ejecutar(a: 'guardar' | 'borrar', f: () => Promise<string>) {
     if (enCurso.current) return
     enCurso.current = true
@@ -78,7 +89,7 @@ export function PanelGasto({ estado, editarId, onCerrar, onListo }: Props) {
     try {
       onListo(await f())
     } catch (e) {
-      setError(leerErrorApp(e).mensaje)
+      fallar(e)
       setConfirmando(false)
     } finally {
       enCurso.current = false
@@ -121,7 +132,10 @@ export function PanelGasto({ estado, editarId, onCerrar, onListo }: Props) {
     setLeyendo(true)
     setError(null)
     try {
-      const p = await leerTicket({ data: { base64: await comprimirImagen(archivo) } })
+      const p = await leerTicket({
+        data: { base64: await comprimirImagen(archivo) },
+        fetch: fetchConTimeout(TIMEOUT_TICKET),
+      })
       if (p.monto) setMonto(String(p.monto))
       if (p.nombre) setNombre(p.nombre)
       if (p.fecha) setFecha(p.fecha)
@@ -130,7 +144,7 @@ export function PanelGasto({ estado, editarId, onCerrar, onListo }: Props) {
       setApoyo(p.aviso)
       nombreRef.current?.focus()
     } catch (e) {
-      setError(leerErrorApp(e).mensaje)
+      fallar(e)
     } finally {
       enCurso.current = false
       setLeyendo(false)
@@ -181,6 +195,7 @@ export function PanelGasto({ estado, editarId, onCerrar, onListo }: Props) {
               guardar()
             }}
           >
+            <FranjaOffline enLinea />
             {error && (
               <p
                 ref={avisoRef}
