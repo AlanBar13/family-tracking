@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { HeadContent, Outlet, Scripts, createRootRoute } from '@tanstack/react-router'
 import appCss from '@/styles.css?url'
+import { ActualizacionPwa } from '@/components/ActualizacionPwa'
 
 export const Route = createRootRoute({
   head: () => ({
@@ -10,9 +11,16 @@ export const Route = createRootRoute({
         name: 'viewport',
         content: 'width=device-width, initial-scale=1, viewport-fit=cover',
       },
+      { name: 'apple-mobile-web-app-capable', content: 'yes' },
+      { name: 'apple-mobile-web-app-status-bar-style', content: 'default' },
       { title: 'Gastos de la casa' },
     ],
-    links: [{ rel: 'stylesheet', href: appCss }],
+    links: [
+      { rel: 'stylesheet', href: appCss },
+      { rel: 'manifest', href: '/manifest.webmanifest' },
+      { rel: 'icon', href: '/favicon.svg', type: 'image/svg+xml' },
+      { rel: 'apple-touch-icon', href: '/icons/apple-touch-icon.png' },
+    ],
   }),
   component: RootComponent,
 })
@@ -40,6 +48,7 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
       </head>
       <body>
         {children}
+        <ActualizacionPwa />
         <Scripts />
       </body>
     </html>

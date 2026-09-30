@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect id="fondo" width="512" height="512" fill="#10716b"/>
+  <g id="dibujo" fill="#eef1f0">
+    <path d="M136 116H376V372L360 386L344 372L328 386L312 372L296 386L280 372L264 386L248 372L232 386L216 372L200 386L184 372L168 386L152 372L136 386Z"/>
+  </g>
+  <g id="renglones" fill="#10716b">
+    <rect x="168" y="152" width="176" height="14" rx="7"/>
+    <rect x="168" y="188" width="176" height="14" rx="7"/>
+    <rect x="168" y="224" width="112" height="14" rx="7"/>
+    <rect x="168" y="290" width="176" height="6" rx="3"/>
+    <rect x="168" y="314" width="64" height="18" rx="9"/>
+    <rect x="256" y="314" width="88" height="18" rx="9"/>
+  </g>
+</svg>
