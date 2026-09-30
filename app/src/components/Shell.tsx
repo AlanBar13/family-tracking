@@ -1,15 +1,14 @@
 import { useState, type ReactNode } from 'react'
-import { useNavigate } from '@tanstack/react-router'
+import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 import { clienteNavegador } from '@/lib/supabase/navegador'
 import { cerrarSesion } from '@/server/auth'
 
-// TODO(paso-05): pestañas Resumen y Gastos con navegación real.
-// TODO(paso-06): el botón "Nuevo gasto" abre el formulario.
 export function Shell({
   nombre,
   children,
 }: Readonly<{ nombre: string; children: ReactNode }>) {
   const navigate = useNavigate()
+  const { vista } = useSearch({ strict: false })
   const [saliendo, setSaliendo] = useState(false)
 
   async function salir() {
@@ -50,15 +49,27 @@ export function Shell({
         className="fixed inset-x-0 bottom-0 z-10 border-t border-linea bg-papel pb-[env(safe-area-inset-bottom)]"
       >
         <div className="mx-auto flex max-w-[560px] items-center gap-2 px-4 py-2.5">
-          <span className="flex-1 text-center text-sm font-medium text-acento">
-            Resumen
-          </span>
-          <span className="flex-1 text-center text-sm font-medium text-suave">
-            Gastos
-          </span>
-          <span className="rounded-full bg-acento px-4 py-2 text-sm font-semibold text-papel">
+          <div role="tablist" className="flex flex-1 gap-2">
+            {(['resumen', 'lista'] as const).map((v) => (
+              <Link
+                key={v}
+                to="/"
+                role="tab"
+                aria-selected={vista === v}
+                search={(s) => ({ ...s, vista: v === 'lista' ? v : undefined })}
+                className="flex-1 py-2 text-center text-sm font-medium text-suave aria-selected:text-acento"
+              >
+                {v === 'resumen' ? 'Resumen' : 'Gastos'}
+              </Link>
+            ))}
+          </div>
+          <Link
+            to="/"
+            search={(s) => ({ ...s, nuevo: 1 as const })}
+            className="rounded-full bg-acento px-4 py-2 text-sm font-semibold text-papel"
+          >
             Nuevo gasto
-          </span>
+          </Link>
         </div>
       </nav>
     </div>

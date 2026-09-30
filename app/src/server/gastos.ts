@@ -14,7 +14,7 @@ import { requerirMiembro } from './requerir-miembro'
 const zona = () => process.env.HOGAR_ZONA_HORARIA || 'America/Mexico_City'
 
 /**
- * El `inputValidator` solo tipa la entrada; la validación real corre dentro de
+ * El `validator` solo tipa la entrada; la validación real corre dentro de
  * `ejecutar` para que un fallo salga como ErrorApp `VALIDACION` (lanzado desde
  * el validador, TanStack lo entrega sin `codigo`).
  */
@@ -46,7 +46,7 @@ const eActualizar = entrada(gastoEntrada.extend({ id }))
 const eBorrar = entrada(z.object({ id, mes: z.string() }))
 
 export const obtenerEstado = createServerFn({ method: 'GET' })
-  .inputValidator(eEstado.tipar)
+  .validator(eEstado.tipar)
   .handler(({ data }) =>
     ejecutar(async () => {
       const d = eEstado.validar(data)
@@ -55,7 +55,7 @@ export const obtenerEstado = createServerFn({ method: 'GET' })
   )
 
 export const agregarGasto = createServerFn({ method: 'POST' })
-  .inputValidator(eAgregar.tipar)
+  .validator(eAgregar.tipar)
   .handler(({ data }) =>
     ejecutar(async () => {
       const d = eAgregar.validar(data)
@@ -64,7 +64,7 @@ export const agregarGasto = createServerFn({ method: 'POST' })
   )
 
 export const actualizarGasto = createServerFn({ method: 'POST' })
-  .inputValidator(eActualizar.tipar)
+  .validator(eActualizar.tipar)
   .handler(({ data }) =>
     ejecutar(async () => {
       const d = eActualizar.validar(data)
@@ -73,7 +73,7 @@ export const actualizarGasto = createServerFn({ method: 'POST' })
   )
 
 export const borrarGasto = createServerFn({ method: 'POST' })
-  .inputValidator(eBorrar.tipar)
+  .validator(eBorrar.tipar)
   .handler(({ data }) =>
     ejecutar(async () => {
       const d = eBorrar.validar(data)

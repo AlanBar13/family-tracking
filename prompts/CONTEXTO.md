@@ -335,8 +335,8 @@ HOGAR_ZONA_HORARIA=America/Mexico_City
 | 02 Base de datos | ✅ | **Entorno: nube** (sin Docker): proyecto `gastos-dev`, enlazado con `supabase link`. Migraciones `20260930100000_esquema_inicial.sql` y `20260930100100_seguridad.sql` aplicadas con `db push`; seed aplicado con `db query -f seed.sql` (`db push` no lo corre en la nube). Pruebas de RLS en `supabase/tests/rls.sql` (SQL plano con ROLLBACK, sin pgTAP), pasan con `pnpm db:test`. Tipos en `src/lib/database.types.ts` (`pnpm db:types`). `typecheck` y `lint` pasan. **Pendiente del usuario:** darse de alta como primer admin. |
 | 03 Autenticación | ✅  | Código listo; `typecheck`, `lint`, `test` (7) y `build` pasan. Puerto 3000. **Pendiente del usuario:** crear `app/.env`, dar de alta Google OAuth y probar en navegador (ver pasos manuales). |
 | 04 Server functions | ✅ | `typecheck`, `lint`, `test` (29) y `build` pasan. Migración `20260930110000_meses_con_gastos.sql` aplicada (`meses_con_gastos()`, security invoker) y tipos regenerados. Lógica pura en `src/lib/{mensajes,fechas,validacion}.ts`; lógica con cliente inyectado en `src/server/gastos-logica.ts`; server fns en `src/server/gastos.ts` (`obtenerEstado`, `agregarGasto`, `actualizarGasto`, `borrarGasto`). **No verificado contra la base con sesión real** (requiere login manual, paso 03 sigue 🟡); se probó con Supabase simulado. Ruta de depuración creada y borrada. |
-| 05 Resumen y lista | ⬜ | |
-| 06 Formulario | ⬜ | |
+| 05 Resumen y lista | ✅ | `typecheck`, `lint`, `test` (40) y `build` pasan. Lógica en `src/lib/resumen.ts`; UI en `components/{Resumen,Lista}.tsx` y `routes/_app/index.tsx`; pestañas y "Nuevo gasto" en `Shell.tsx`. Verificado con Playwright (sesión real, datos demo, 390 px, claro y oscuro): totales, porcentajes, agrupación por día y persona, › deshabilitado en el mes actual y URL con mes y vista. Capturas en `capturas-paso05/`. |
+| 06 Formulario | ✅ | `typecheck`, `lint`, `test` (40) y `build` pasan. `components/PanelGasto.tsx` con `<dialog>` nativo (foco, Escape y `aria-modal` gratis; bloqueo de scroll y regreso del foco a mano); confirmación de borrado en otro `<dialog>`. Probado en Playwright a 390 px: validación de fecha vacía, crear, abrir, confirmar y borrar. **No probado a mano:** error de servidor con categoría desactivada, botón atrás, otro mes. Al guardar se navega al mes del gasto y el loader vuelve a pedir el estado (se descarta el que devuelve la server fn). |
 | 07 Lector de tickets | ⬜ | |
 | 08 Ajustes | ⬜ | |
 | 09 PWA | ⬜ | |
@@ -374,3 +374,8 @@ _(agregar aquí, con fecha, cualquier decisión que cambie o precise lo anterior
   - `obtenerEstado.config.miembros` devuelve solo `{ id, nombre }`; `miembro` incluye `esAdmin`.
   - Mensajes nuevos (no estaban en §2.1): nombre >120 y notas >500 caracteres.
   - `Math.round(monto*100)/100` da 10.01 para 10.005 en JS (10.005*100 = 1000.5).
+- **2026-09-30 (paso 05):**
+  - Estado de la vista en la URL (`?mes=&vista=lista&editar=&nuevo=1`) validado a mano en `validateSearch` (sin `@tanstack/zod-adapter`): lo inválido se descarta; sin `vista` es el resumen y sin `mes` el servidor usa el mes actual.
+  - Mientras carga otro mes la vista anterior sigue visible con opacidad reducida (`aria-busy`); no hay `pendingComponent`.
+  - `obtenerEstado.config.miembros` ya trae `nombreVisible`, así que el respaldo del correo en `nombreDeMiembro` solo aplica si se le pasa `correo`.
+  - `supabase/datos-demo.sql` (`pnpm db:demo`): 2 meses (sep 2026: 6 gastos, $3,155.99, promedio $526; ago 2026: 3 gastos, $6,279.50) y un miembro `demo@example.com`. Se borra repitiendo las dos primeras sentencias.

@@ -41,6 +41,7 @@
     "format": "prettier --write .",
     "db:push": "supabase db push",
     "db:types": "supabase gen types typescript --linked --schema public > src/lib/database.types.ts",
+    "db:demo": "supabase db query --linked -f supabase/datos-demo.sql",
     "db:test": "supabase db query --linked -f supabase/tests/rls.sql"
   }
 }
