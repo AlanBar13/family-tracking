@@ -86,7 +86,7 @@ Los mensajes exactos están en `app/src/lib/mensajes.ts`, que se crea en el paso
 
 ### 2.3 Resumen
 
-- Total: la suma de los montos del mes.
+- Total: la suma de los montos del mes. **Todo total, subtotal o promedio se calcula en centavos enteros** con `sumar()`/`aCentavos()` de `src/lib/dinero.ts` (10.50 + 5.50 = 1050 + 550 = 1600 → 16.00); nunca con `+` sobre decimales.
 - Pie del total: `N gasto` o `N gastos` según el número, seguido de
   `· promedio $X`. El promedio va **sin decimales** (`maximumFractionDigits: 0`).
 - Cada fila del desglose muestra la etiqueta, el monto con 2 decimales y el
@@ -333,8 +333,8 @@ HOGAR_ZONA_HORARIA=America/Mexico_City
 |---|---|---|
 | 01 Proyecto base | ✅ | Versiones: Node 24.12, pnpm 10.27, TanStack Start 1.168 / Router 1.170, React 19.3, Vite 8.3, Tailwind 4.3 (`@tailwindcss/vite`), Vitest 5.0, ESLint 10, **TypeScript 6.0.3**. Proyecto armado a mano según la guía "build from scratch" (el CLI es interactivo). `git init` hecho, sin commit. |
 | 02 Base de datos | ✅ | **Entorno: nube** (sin Docker): proyecto `gastos-dev`, enlazado con `supabase link`. Migraciones `20260930100000_esquema_inicial.sql` y `20260930100100_seguridad.sql` aplicadas con `db push`; seed aplicado con `db query -f seed.sql` (`db push` no lo corre en la nube). Pruebas de RLS en `supabase/tests/rls.sql` (SQL plano con ROLLBACK, sin pgTAP), pasan con `pnpm db:test`. Tipos en `src/lib/database.types.ts` (`pnpm db:types`). `typecheck` y `lint` pasan. **Pendiente del usuario:** darse de alta como primer admin. |
-| 03 Autenticación | 🟡 | Código listo; `typecheck`, `lint`, `test` (7) y `build` pasan. Puerto 3000. **Pendiente del usuario:** crear `app/.env`, dar de alta Google OAuth y probar en navegador (ver pasos manuales). |
-| 04 Server functions | ⬜ | |
+| 03 Autenticación | ✅  | Código listo; `typecheck`, `lint`, `test` (7) y `build` pasan. Puerto 3000. **Pendiente del usuario:** crear `app/.env`, dar de alta Google OAuth y probar en navegador (ver pasos manuales). |
+| 04 Server functions | ✅ | `typecheck`, `lint`, `test` (29) y `build` pasan. Migración `20260930110000_meses_con_gastos.sql` aplicada (`meses_con_gastos()`, security invoker) y tipos regenerados. Lógica pura en `src/lib/{mensajes,fechas,validacion}.ts`; lógica con cliente inyectado en `src/server/gastos-logica.ts`; server fns en `src/server/gastos.ts` (`obtenerEstado`, `agregarGasto`, `actualizarGasto`, `borrarGasto`). **No verificado contra la base con sesión real** (requiere login manual, paso 03 sigue 🟡); se probó con Supabase simulado. Ruta de depuración creada y borrada. |
 | 05 Resumen y lista | ⬜ | |
 | 06 Formulario | ⬜ | |
 | 07 Lector de tickets | ⬜ | |
@@ -367,3 +367,10 @@ _(agregar aquí, con fecha, cualquier decisión que cambie o precise lo anterior
   - Errores tipados (`ErrorApp`, códigos) en `src/lib/errores.ts`.
   - Layout protegido `_app` (pathless); el esqueleto se movió de `__root` a ese layout.
   - Entorno nube: los redirect URLs y el proveedor Google también se configuran en el panel de Supabase; `config.toml` solo aplica a `supabase start`.
+- **2026-09-30 (paso 04):**
+  - **Serialización de errores:** TanStack serializa los errores de server functions con `ShallowErrorPlugin`, que conserva **solo `message`** (se pierden la clase y `codigo`). Por eso toda server function pasa por `ejecutar()`, que lanza `Error('[CODIGO] mensaje')` (`paraCliente`). En el cliente usar siempre `leerErrorApp(e)` (`src/lib/errores.ts`) → `{ codigo, mensaje }`; cualquier otra cosa (p. ej. "Failed to fetch") da `INTERNO`.
+  - Entradas inválidas: el `inputValidator` solo tipa; la validación con Zod corre dentro de `ejecutar()` y lanza `VALIDACION` con el primer mensaje (un error lanzado desde el validador no pasa por el mismo camino).
+  - `actualizarGasto` permite conservar la categoría/tipo de pago **inactivos que el gasto ya tenía** (si no, no se podrían editar gastos viejos); cualquier otro cambio exige activos.
+  - `obtenerEstado.config.miembros` devuelve solo `{ id, nombre }`; `miembro` incluye `esAdmin`.
+  - Mensajes nuevos (no estaban en §2.1): nombre >120 y notas >500 caracteres.
+  - `Math.round(monto*100)/100` da 10.01 para 10.005 en JS (10.005*100 = 1000.5).
