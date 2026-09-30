@@ -1,8 +1,24 @@
-import { createRouter } from '@tanstack/react-router'
+import { Link, createRouter } from '@tanstack/react-router'
 import { routeTree } from './routeTree.gen'
 
+function NoEncontrado() {
+  return (
+    <main className="mx-auto flex min-h-dvh max-w-[420px] flex-col justify-center gap-3 px-4">
+      <h1 className="text-2xl font-semibold">Página no encontrada</h1>
+      <p className="text-suave">Esa dirección no existe.</p>
+      <Link to="/" className="font-medium text-acento">
+        Ir al inicio
+      </Link>
+    </main>
+  )
+}
+
 export function getRouter() {
-  return createRouter({ routeTree, scrollRestoration: true })
+  return createRouter({
+    routeTree,
+    scrollRestoration: true,
+    defaultNotFoundComponent: NoEncontrado,
+  })
 }
 
 declare module '@tanstack/react-router' {

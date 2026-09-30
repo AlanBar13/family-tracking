@@ -333,7 +333,7 @@ HOGAR_ZONA_HORARIA=America/Mexico_City
 |---|---|---|
 | 01 Proyecto base | ✅ | Versiones: Node 24.12, pnpm 10.27, TanStack Start 1.168 / Router 1.170, React 19.3, Vite 8.3, Tailwind 4.3 (`@tailwindcss/vite`), Vitest 5.0, ESLint 10, **TypeScript 6.0.3**. Proyecto armado a mano según la guía "build from scratch" (el CLI es interactivo). `git init` hecho, sin commit. |
 | 02 Base de datos | ✅ | **Entorno: nube** (sin Docker): proyecto `gastos-dev`, enlazado con `supabase link`. Migraciones `20260930100000_esquema_inicial.sql` y `20260930100100_seguridad.sql` aplicadas con `db push`; seed aplicado con `db query -f seed.sql` (`db push` no lo corre en la nube). Pruebas de RLS en `supabase/tests/rls.sql` (SQL plano con ROLLBACK, sin pgTAP), pasan con `pnpm db:test`. Tipos en `src/lib/database.types.ts` (`pnpm db:types`). `typecheck` y `lint` pasan. **Pendiente del usuario:** darse de alta como primer admin. |
-| 03 Autenticación | ⬜ | |
+| 03 Autenticación | 🟡 | Código listo; `typecheck`, `lint`, `test` (7) y `build` pasan. Puerto 3000. **Pendiente del usuario:** crear `app/.env`, dar de alta Google OAuth y probar en navegador (ver pasos manuales). |
 | 04 Server functions | ⬜ | |
 | 05 Resumen y lista | ⬜ | |
 | 06 Formulario | ⬜ | |
@@ -361,3 +361,9 @@ _(agregar aquí, con fecha, cualquier decisión que cambie o precise lo anterior
     con `@theme inline` (`bg-papel`, `bg-tarjeta`, `text-tinta`, `text-suave`,
     `border-linea`, `bg-acento`, `text-peligro`, `rounded-tarjeta`,
     `shadow-tarjeta`).
+- **2026-09-30 (paso 03):**
+  - Cookies de sesión con `getCookies`/`setCookie`/`deleteCookie` de `@tanstack/react-start/server`; callback como server route (`server.handlers.GET`).
+  - `requerirMiembro()` vive en `src/server/requerir-miembro.ts`, separado de `auth.ts`: si comparte archivo con server functions, el import de `/server` se cuela al bundle del cliente y el build falla (import protection). La lógica testeable es `resolverMiembro(supabase)` en `src/server/miembro.ts`.
+  - Errores tipados (`ErrorApp`, códigos) en `src/lib/errores.ts`.
+  - Layout protegido `_app` (pathless); el esqueleto se movió de `__root` a ese layout.
+  - Entorno nube: los redirect URLs y el proveedor Google también se configuran en el panel de Supabase; `config.toml` solo aplica a `supabase start`.

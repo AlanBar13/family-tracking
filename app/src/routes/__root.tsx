@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react'
 import { HeadContent, Outlet, Scripts, createRootRoute } from '@tanstack/react-router'
-import { Shell } from '@/components/Shell'
 import appCss from '@/styles.css?url'
 
 export const Route = createRootRoute({
@@ -21,9 +20,7 @@ export const Route = createRootRoute({
 function RootComponent() {
   return (
     <RootDocument>
-      <Shell>
-        <Outlet />
-      </Shell>
+      <Outlet />
     </RootDocument>
   )
 }
