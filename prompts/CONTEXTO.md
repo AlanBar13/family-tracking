@@ -332,7 +332,7 @@ HOGAR_ZONA_HORARIA=America/Mexico_City
 | Paso | Estado | Notas y desviaciones |
 |---|---|---|
 | 01 Proyecto base | ✅ | Versiones: Node 24.12, pnpm 10.27, TanStack Start 1.168 / Router 1.170, React 19.3, Vite 8.3, Tailwind 4.3 (`@tailwindcss/vite`), Vitest 5.0, ESLint 10, **TypeScript 6.0.3**. Proyecto armado a mano según la guía "build from scratch" (el CLI es interactivo). `git init` hecho, sin commit. |
-| 02 Base de datos | ⬜ | |
+| 02 Base de datos | ✅ | **Entorno: nube** (sin Docker): proyecto `gastos-dev`, enlazado con `supabase link`. Migraciones `20260930100000_esquema_inicial.sql` y `20260930100100_seguridad.sql` aplicadas con `db push`; seed aplicado con `db query -f seed.sql` (`db push` no lo corre en la nube). Pruebas de RLS en `supabase/tests/rls.sql` (SQL plano con ROLLBACK, sin pgTAP), pasan con `pnpm db:test`. Tipos en `src/lib/database.types.ts` (`pnpm db:types`). `typecheck` y `lint` pasan. **Pendiente del usuario:** darse de alta como primer admin. |
 | 03 Autenticación | ⬜ | |
 | 04 Server functions | ⬜ | |
 | 05 Resumen y lista | ⬜ | |
