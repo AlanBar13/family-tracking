@@ -16,3 +16,7 @@ supabase/.branches
 
 # TanStack Start (generado)
 app/.tanstack/
+
+# Migración desde Sheets: los CSV y reportes tienen datos personales
+app/migracion/*
+!app/migracion/LEEME.md
