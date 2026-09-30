@@ -68,6 +68,13 @@ programador:
   "quién soy" depende de que cada correo esté dado de alta a mano en `Config`.
 - Requiere que todas las personas que capturen tengan cuenta de Google.
 
+## Versión 2 (app/)
+
+Reescritura en `app/`: TanStack Start (React + TypeScript) desplegada en Vercel, con Supabase (Postgres + login con Google) y el lector de tickets con Gemini llamado solo desde el servidor. Sustituye a Google Sheets + Apps Script; los archivos `.gs` e `Index.html` de la raíz quedan como **legado** (solo referencia).
+
+- Pasos para ponerla en producción: [CHECKLIST-MANUAL.md](CHECKLIST-MANUAL.md)
+- Explicaciones y configuración: [app/DESPLIEGUE.md](app/DESPLIEGUE.md)
+
 ## Licencia
 
 Úsalo, cópialo y modifícalo libremente para tu propio uso.
