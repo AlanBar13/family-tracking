@@ -2,7 +2,9 @@ import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'rea
 import { leerErrorApp } from '@/lib/errores'
 import { MENSAJES } from '@/lib/mensajes'
 import { aErrorVisible, gastoEntrada } from '@/lib/validacion'
+import { comprimirImagen } from '@/lib/comprimir-imagen'
 import { actualizarGasto, agregarGasto, borrarGasto } from '@/server/gastos'
+import { leerTicket } from '@/server/ticket'
 import type { Estado } from '@/server/gastos-logica'
 
 /** <dialog> modal: trampa de foco y Escape nativos; aquí solo bloqueo de scroll y regreso del foco. */
@@ -56,6 +58,10 @@ export function PanelGasto({ estado, editarId, onCerrar, onListo }: Props) {
   const [accion, setAccion] = useState<'guardar' | 'borrar' | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [confirmando, setConfirmando] = useState(false)
+  const [leyendo, setLeyendo] = useState(false)
+  const [apoyo, setApoyo] = useState<string | null>(null)
+  const fotoRef = useRef<HTMLInputElement>(null)
+  const nombreRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!editarId) montoRef.current?.focus()
@@ -107,7 +113,31 @@ export function PanelGasto({ estado, editarId, onCerrar, onListo }: Props) {
     })
   }
 
-  const ocupado = accion !== null
+  async function escanear(input: HTMLInputElement) {
+    const archivo = input.files?.[0]
+    input.value = '' // para poder repetir con la misma imagen
+    if (!archivo || enCurso.current) return
+    enCurso.current = true
+    setLeyendo(true)
+    setError(null)
+    try {
+      const p = await leerTicket({ data: { base64: await comprimirImagen(archivo) } })
+      if (p.monto) setMonto(String(p.monto))
+      if (p.nombre) setNombre(p.nombre)
+      if (p.fecha) setFecha(p.fecha)
+      if (p.categoriaId) setCategoriaId(p.categoriaId)
+      if (p.tipoPagoId) setTipoPagoId(p.tipoPagoId)
+      setApoyo(p.aviso)
+      nombreRef.current?.focus()
+    } catch (e) {
+      setError(leerErrorApp(e).mensaje)
+    } finally {
+      enCurso.current = false
+      setLeyendo(false)
+    }
+  }
+
+  const ocupado = accion !== null || leyendo
   const titulo = editarId ? 'Editar gasto' : 'Nuevo gasto'
   const categorias = config.categorias.filter((c) => c.activa || c.id === gasto?.categoriaId)
   const tipos = config.tiposPago.filter((t) => t.activo || t.id === gasto?.tipoPagoId)
@@ -161,8 +191,40 @@ export function PanelGasto({ estado, editarId, onCerrar, onListo }: Props) {
               </p>
             )}
 
-            {/* TODO(paso-07): botón "Escanear ticket" */}
-            <div data-slot="escanear" />
+            <div>
+              <input
+                ref={fotoRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                hidden
+                onChange={(e) => void escanear(e.target)}
+              />
+              <button
+                type="button"
+                disabled={ocupado}
+                onClick={() => fotoRef.current?.click()}
+                className="flex w-full items-center justify-center gap-2 rounded-full border border-acento px-4 py-3 font-semibold text-acento disabled:opacity-60"
+              >
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 24 24"
+                  className="size-5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M3 8a2 2 0 0 1 2-2h2l1.5-2h7L17 6h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                  <circle cx="12" cy="13" r="4" />
+                </svg>
+                Escanear ticket
+              </button>
+              <p aria-live="polite" className="mt-1 text-center text-sm text-suave">
+                {leyendo ? 'Leyendo el ticket…' : (apoyo ?? 'Toma la foto y se llenan los campos')}
+              </p>
+            </div>
 
             <label>
               <span className={etiqueta}>Monto</span>
@@ -179,6 +241,7 @@ export function PanelGasto({ estado, editarId, onCerrar, onListo }: Props) {
             <label>
               <span className={etiqueta}>Nombre del gasto</span>
               <input
+                ref={nombreRef}
                 placeholder="Súper de la semana"
                 value={nombre}
                 onChange={(e) => setNombre(e.target.value)}

@@ -38,6 +38,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "probar:gemini": "node --env-file-if-exists=.env scripts/probar-gemini.mjs",
     "format": "prettier --write .",
     "db:push": "supabase db push",
     "db:types": "supabase gen types typescript --linked --schema public > src/lib/database.types.ts",
