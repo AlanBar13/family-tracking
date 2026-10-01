@@ -1,5 +1,5 @@
 // Sube VERSION para invalidar el precache y los assets guardados.
-const VERSION = 'v1'
+const VERSION = 'v2'
 const CACHE = `gastos-${VERSION}`
 const PRECACHE = [
   '/offline.html',
@@ -64,4 +64,22 @@ self.addEventListener('fetch', (event) => {
       ),
     )
   }
+})
+
+// Aviso de presupuesto mandado por el servidor (src/server/push.ts).
+self.addEventListener('push', (event) => {
+  const { title = 'Gastos', body = '', tag } = event.data?.json() ?? {}
+  event.waitUntil(
+    self.registration.showNotification(title, { body, tag, icon: '/icons/icon-192.png' }),
+  )
+})
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window' }).then((ventanas) => {
+      const abierta = ventanas.find((v) => new URL(v.url).origin === self.location.origin)
+      return abierta ? abierta.focus() : self.clients.openWindow('/')
+    }),
+  )
 })

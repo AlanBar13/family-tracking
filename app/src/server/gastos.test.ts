@@ -22,11 +22,6 @@ type Llamada = { tabla: string; op: string; datos?: unknown }
 function ctxFalso(opciones: { gastoExiste?: boolean } = {}) {
   const { gastoExiste = true } = opciones
   const llamadas: Llamada[] = []
-  const resolver = (tabla: string, op: string) => {
-    if (tabla === 'categorias' && op === 'select')
-      return { data: { activa: false }, error: null } // se sobreescribe abajo por id
-    return { data: [], error: null }
-  }
   const from = (tabla: string) => {
     let op = 'select'
     let idFiltro: string | undefined
@@ -47,12 +42,19 @@ function ctxFalso(opciones: { gastoExiste?: boolean } = {}) {
         return { data: idFiltro === PAGO ? { activo: true } : null, error: null }
       if (tabla === 'gastos' && columnas.startsWith('categoria_id') && op === 'select')
         return {
-          data: gastoExiste ? { categoria_id: CAT_INACTIVA, tipo_pago_id: PAGO } : null,
+          data: gastoExiste
+            ? {
+                categoria_id: CAT_INACTIVA,
+                tipo_pago_id: PAGO,
+                monto: 10,
+                fecha: '2026-03-01',
+              }
+            : null,
           error: null,
         }
       if (tabla === 'gastos' && (op === 'update' || op === 'delete'))
         return { data: gastoExiste ? [{ id: GASTO }] : [], error: null }
-      return resolver(tabla, op)
+      return { data: [], error: null }
     }
     const encadenar =
       (nombre: string) =>

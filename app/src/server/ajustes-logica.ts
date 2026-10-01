@@ -26,7 +26,14 @@ function exigirAdmin(ctx: Contexto) {
   if (!ctx.miembro.es_admin) throw new ErrorApp('NO_AUTORIZADO', MSG.soloAdmin)
 }
 
-type Fila = { id: string; nombre: string; orden: number; activo: boolean; gastos: number }
+type Fila = {
+  id: string
+  nombre: string
+  orden: number
+  activo: boolean
+  gastos: number
+  presupuesto: number | null
+}
 
 function contar(gastos: Record<string, string>[], fk: string) {
   const n = new Map<string, number>()
@@ -38,8 +45,16 @@ export async function obtenerAjustesDe(ctx: Contexto) {
   const s = db(ctx)
   // ponytail: se traen todos los gastos solo para contarlos; para un hogar (miles de filas) basta.
   const [cats, pagos, miembros, gastos] = await Promise.all([
-    s.from('categorias').select('id, nombre, orden, activa').order('orden').order('nombre'),
-    s.from('tipos_pago').select('id, nombre, orden, activo').order('orden').order('nombre'),
+    s
+      .from('categorias')
+      .select('id, nombre, orden, activa, presupuesto')
+      .order('orden')
+      .order('nombre'),
+    s
+      .from('tipos_pago')
+      .select('id, nombre, orden, activo')
+      .order('orden')
+      .order('nombre'),
     s.from('miembros').select('id, nombre, correo, es_admin, activo').order('nombre'),
     s.from('gastos').select('categoria_id, tipo_pago_id, autor_id'),
   ])
@@ -48,7 +63,14 @@ export async function obtenerAjustesDe(ctx: Contexto) {
   const porPago = contar(g, 'tipo_pago_id')
   const porAutor = contar(g, 'autor_id')
   const filas = (
-    lista: { id: string; nombre: string; orden: number; activa?: boolean; activo?: boolean }[],
+    lista: {
+      id: string
+      nombre: string
+      orden: number
+      activa?: boolean
+      activo?: boolean
+      presupuesto?: number | null
+    }[],
     n: Map<string, number>,
   ): Fila[] =>
     lista.map((x) => ({
@@ -57,6 +79,7 @@ export async function obtenerAjustesDe(ctx: Contexto) {
       orden: x.orden,
       activo: x.activa ?? x.activo ?? true,
       gastos: n.get(x.id) ?? 0,
+      presupuesto: x.presupuesto == null ? null : Number(x.presupuesto),
     }))
   return {
     esAdmin: ctx.miembro.es_admin,
@@ -85,10 +108,9 @@ export async function obtenerAjustesDe(ctx: Contexto) {
 /** Todas las filas del tipo, con la columna de activo normalizada a `activo`. */
 async function listar(ctx: Contexto, tipo: Tipo) {
   const col = TIPOS[tipo].activo
-  const filas = ok(await db(ctx).from(tipo).select(`id, nombre, orden, ${col}`)) as unknown as Record<
-    string,
-    unknown
-  >[]
+  const filas = ok(
+    await db(ctx).from(tipo).select(`id, nombre, orden, ${col}`),
+  ) as unknown as Record<string, unknown>[]
   return filas.map((f) => ({
     id: f.id as string,
     nombre: f.nombre as string,
@@ -106,7 +128,12 @@ export async function crearElementoDe(ctx: Contexto, tipo: Tipo, nombre: string)
   return obtenerAjustesDe(ctx)
 }
 
-export async function renombrarElementoDe(ctx: Contexto, tipo: Tipo, id: string, nombre: string) {
+export async function renombrarElementoDe(
+  ctx: Contexto,
+  tipo: Tipo,
+  id: string,
+  nombre: string,
+) {
   exigirAdmin(ctx)
   const lista = await listar(ctx, tipo)
   if (!lista.some((x) => x.id === id)) throw new ErrorApp('NO_ENCONTRADO', MSG.noExiste)
@@ -119,17 +146,30 @@ export async function reordenarElementosDe(ctx: Contexto, tipo: Tipo, ids: strin
   exigirAdmin(ctx)
   // ponytail: una actualización por fila, sin transacción; con 10-20 filas no importa.
   await Promise.all(
-    ids.map(async (id, orden) => ok(await db(ctx).from(tipo).update({ orden }).eq('id', id))),
+    ids.map(async (id, orden) =>
+      ok(await db(ctx).from(tipo).update({ orden }).eq('id', id)),
+    ),
   )
   return obtenerAjustesDe(ctx)
 }
 
-export async function activarElementoDe(ctx: Contexto, tipo: Tipo, id: string, activo: boolean) {
+export async function activarElementoDe(
+  ctx: Contexto,
+  tipo: Tipo,
+  id: string,
+  activo: boolean,
+) {
   exigirAdmin(ctx)
   const lista = await listar(ctx, tipo)
   if (!lista.some((x) => x.id === id)) throw new ErrorApp('NO_ENCONTRADO', MSG.noExiste)
-  if (!quedaUnoActivo(lista, id, activo)) throw new ErrorApp('VALIDACION', TIPOS[tipo].sinActivos)
-  ok(await db(ctx).from(tipo).update({ [TIPOS[tipo].activo]: activo }).eq('id', id))
+  if (!quedaUnoActivo(lista, id, activo))
+    throw new ErrorApp('VALIDACION', TIPOS[tipo].sinActivos)
+  ok(
+    await db(ctx)
+      .from(tipo)
+      .update({ [TIPOS[tipo].activo]: activo })
+      .eq('id', id),
+  )
   return obtenerAjustesDe(ctx)
 }
 
@@ -142,8 +182,22 @@ export async function borrarElementoDe(ctx: Contexto, tipo: Tipo, id: string) {
     .select('id', { count: 'exact', head: true })
     .eq(TIPOS[tipo].fk, id)
   if (count) throw new ErrorApp('VALIDACION', TIPOS[tipo].conGastos)
-  if (!quedaUnoActivo(lista, id, false)) throw new ErrorApp('VALIDACION', TIPOS[tipo].sinActivos)
+  if (!quedaUnoActivo(lista, id, false))
+    throw new ErrorApp('VALIDACION', TIPOS[tipo].sinActivos)
   ok(await db(ctx).from(tipo).delete().eq('id', id))
+  return obtenerAjustesDe(ctx)
+}
+
+export async function fijarPresupuestoDe(
+  ctx: Contexto,
+  id: string,
+  presupuesto: number | null,
+) {
+  exigirAdmin(ctx)
+  const filas = ok(
+    await db(ctx).from('categorias').update({ presupuesto }).eq('id', id).select('id'),
+  ) as unknown[]
+  if (!filas.length) throw new ErrorApp('NO_ENCONTRADO', MSG.noExiste)
   return obtenerAjustesDe(ctx)
 }
 
@@ -167,7 +221,11 @@ export async function borrarMiembroDe(ctx: Contexto, id: string) {
   ).map((m) => ({ id: m.id, activo: m.activo, esAdmin: m.es_admin }))
   // Borrar equivale a desactivar para la regla del último admin.
   const error = errorDeMiembro(lista, id, { activo: false }, ctx.miembro.id)
-  if (error) throw new ErrorApp(lista.some((m) => m.id === id) ? 'VALIDACION' : 'NO_ENCONTRADO', error)
+  if (error)
+    throw new ErrorApp(
+      lista.some((m) => m.id === id) ? 'VALIDACION' : 'NO_ENCONTRADO',
+      error,
+    )
   const { count } = await db(ctx)
     .from('gastos')
     .select('id', { count: 'exact', head: true })
@@ -191,7 +249,11 @@ export async function actualizarMiembroDe(
     }[]
   ).map((m) => ({ id: m.id, activo: m.activo, esAdmin: m.es_admin }))
   const error = errorDeMiembro(lista, id, cambio, ctx.miembro.id)
-  if (error) throw new ErrorApp(lista.some((m) => m.id === id) ? 'VALIDACION' : 'NO_ENCONTRADO', error)
+  if (error)
+    throw new ErrorApp(
+      lista.some((m) => m.id === id) ? 'VALIDACION' : 'NO_ENCONTRADO',
+      error,
+    )
   const { nombre, activo, esAdmin } = cambio
   ok(
     await db(ctx)

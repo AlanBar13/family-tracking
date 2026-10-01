@@ -57,6 +57,8 @@ Project Settings → Environment Variables (Production):
 | `GEMINI_API_KEY` | tu llave de Gemini |
 | `GEMINI_MODELO` | opcional (`gemini-3.5-flash-lite` por omisión) |
 | `HOGAR_ZONA_HORARIA` | `America/Mexico_City` |
+| `VITE_VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | de `pnpm exec web-push generate-vapid-keys` (avisos de presupuesto; opcionales) |
+| `VAPID_SUBJECT` | `mailto:tu-correo` |
 
 **Nunca** `SUPABASE_SERVICE_ROLE_KEY` ni las credenciales de Google en Vercel. Las `VITE_*` se incrustan en el build: si las cambias, vuelve a desplegar.
 

@@ -17,7 +17,12 @@ export function Vacio({ children }: Readonly<{ children: React.ReactNode }>) {
   )
 }
 
-type FilaBarra = { etiqueta: string; total: number; color: string }
+type FilaBarra = {
+  etiqueta: string
+  total: number
+  color: string
+  presupuesto?: number | null
+}
 
 function Desglose({
   titulo,
@@ -37,6 +42,14 @@ function Desglose({
                 {dinero(f.total)} · {porcentaje(f.total, total)}%
               </span>
             </div>
+            {f.presupuesto && (
+              <div
+                className={`text-xs ${f.total >= f.presupuesto ? 'text-peligro' : 'text-suave'}`}
+              >
+                {porcentaje(f.total, f.presupuesto)}% de {dineroCorto(f.presupuesto)} de
+                presupuesto
+              </div>
+            )}
             <div className="mt-1 h-2 rounded-full bg-linea">
               <div
                 className="h-full rounded-full"
@@ -68,6 +81,7 @@ export function Resumen({ estado }: Readonly<{ estado: Estado }>) {
     config.tiposPago.find((t) => t.id === id)?.nombre ?? 'Sin especificar'
 
   const porCategoria = acumular(gastos, (g) => g.categoriaId).map((f) => ({
+    presupuesto: config.categorias.find((c) => c.id === f.clave)?.presupuesto,
     etiqueta: nombreCat(f.clave),
     total: f.total,
     color: colorCategoria(f.clave, config.categorias),

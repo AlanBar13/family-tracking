@@ -24,6 +24,7 @@ export const MSG = {
   nombreVacio: 'Escribe un nombre.',
   nombreLargo: 'El nombre es demasiado largo (máximo 60 caracteres).',
   correoInvalido: 'El correo no es válido.',
+  presupuestoInvalido: 'El presupuesto debe ser un monto mayor a cero.',
   correoRepetido: 'Ese correo ya es miembro.',
   noExiste: 'Eso ya no existe. Recarga la pantalla.',
   ultimoAdmin: 'Debe quedar al menos un administrador activo.',

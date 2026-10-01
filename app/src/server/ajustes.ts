@@ -10,6 +10,7 @@ import {
   borrarElementoDe,
   borrarMiembroDe,
   crearElementoDe,
+  fijarPresupuestoDe,
   obtenerAjustesDe,
   reordenarElementosDe,
   renombrarElementoDe,
@@ -39,11 +40,7 @@ async function ejecutar<T>(f: () => Promise<T>): Promise<T> {
 const tipo = z.enum(['categorias', 'tipos_pago'])
 const id = z.uuid(MSG.noExiste)
 const nombre = z.string().trim().min(1, MSG.nombreVacio).max(60, MSG.nombreLargo)
-const correo = z
-  .string()
-  .trim()
-  .toLowerCase()
-  .pipe(z.email(MSG.correoInvalido))
+const correo = z.string().trim().toLowerCase().pipe(z.email(MSG.correoInvalido))
 
 const eCrear = entrada(z.object({ tipo, nombre }))
 const eRenombrar = entrada(z.object({ tipo, id, nombre }))
@@ -51,6 +48,16 @@ const eReordenar = entrada(z.object({ tipo, ids: z.array(id) }))
 const eActivar = entrada(z.object({ tipo, id, activo: z.boolean() }))
 const eBorrar = entrada(z.object({ tipo, id }))
 const eBorrar2 = entrada(z.object({ id }))
+const ePresupuesto = entrada(
+  z.object({
+    id,
+    presupuesto: z
+      .number(MSG.presupuestoInvalido)
+      .positive(MSG.presupuestoInvalido)
+      .max(9_999_999_999, MSG.presupuestoInvalido)
+      .nullable(),
+  }),
+)
 const eAgregarMiembro = entrada(z.object({ correo, nombre }))
 const eActualizarMiembro = entrada(
   z.object({
@@ -107,6 +114,15 @@ export const borrarElemento = createServerFn({ method: 'POST' })
     ejecutar(async () => {
       const d = eBorrar.validar(data)
       return borrarElementoDe(await requerirMiembro(), d.tipo, d.id)
+    }),
+  )
+
+export const fijarPresupuesto = createServerFn({ method: 'POST' })
+  .validator(ePresupuesto.tipar)
+  .handler(({ data }) =>
+    ejecutar(async () => {
+      const d = ePresupuesto.validar(data)
+      return fijarPresupuestoDe(await requerirMiembro(), d.id, d.presupuesto)
     }),
   )
 

@@ -1,8 +1,11 @@
+import { sumar } from '@/lib/dinero'
 import { ErrorApp, nombreVisible } from '@/lib/errores'
 import { hoyEnZona, listaDeMeses, normalizarMes, rangoDelMes } from '@/lib/fechas'
 import { MENSAJES } from '@/lib/mensajes'
+import { mensajeAviso, umbralCruzado } from '@/lib/presupuesto'
 import type { GastoEntrada } from '@/lib/validacion'
 import type { Contexto } from './miembro'
+import { avisarATodos } from './push-logica'
 
 type Cliente = Contexto['supabase']
 type ErrorDb = { code?: string; message?: string }
@@ -43,7 +46,7 @@ export async function obtenerEstadoDe(ctx: Contexto, mesEntrada: unknown, zona: 
   const [categorias, tiposPago, miembros, mesesDb, gastos] = await Promise.all([
     supabase
       .from('categorias')
-      .select('id, nombre, orden, activa')
+      .select('id, nombre, orden, activa, presupuesto')
       .order('orden')
       .order('nombre'),
     supabase
@@ -73,7 +76,10 @@ export async function obtenerEstadoDe(ctx: Contexto, mesEntrada: unknown, zona: 
     mes,
     meses: listaDeMeses(ok(mesesDb) ?? [], hoy.slice(0, 7)),
     config: {
-      categorias: ok(categorias),
+      categorias: ok(categorias).map((c) => ({
+        ...c,
+        presupuesto: c.presupuesto === null ? null : Number(c.presupuesto),
+      })),
       tiposPago: ok(tiposPago),
       miembros: ok(miembros).map((m) => ({ id: m.id, nombre: nombreVisible(m) })),
     },
@@ -119,6 +125,25 @@ const columnas = (g: GastoEntrada) => ({
   notas: g.notas,
 })
 
+/**
+ * Si el gasto hizo que su categoría cruzara el 80% o el 100% del presupuesto del mes,
+ * avisa a todos. `previo`: lo que el mismo gasto ya sumaba a esa categoría y mes.
+ */
+async function avisarSiCruza(ctx: Contexto, estado: Estado, g: GastoEntrada, previo = 0) {
+  const cat = estado.config.categorias.find((c) => c.id === g.categoriaId)
+  if (!cat?.presupuesto) return
+  const despues = sumar(
+    estado.gastos.filter((x) => x.categoriaId === cat.id).map((x) => x.monto),
+  )
+  const antes = sumar([despues, -g.monto, previo])
+  const umbral = umbralCruzado(antes, despues, cat.presupuesto)
+  if (umbral)
+    await avisarATodos(ctx, {
+      ...mensajeAviso(cat.nombre, despues, cat.presupuesto, umbral),
+      tag: `presupuesto-${cat.id}`,
+    })
+}
+
 export async function agregarGastoDe(ctx: Contexto, g: GastoEntrada, zona: string) {
   await validarReferencias(ctx.supabase, g)
   // El autor sale SIEMPRE de la sesión, nunca del cliente.
@@ -127,7 +152,9 @@ export async function agregarGastoDe(ctx: Contexto, g: GastoEntrada, zona: strin
       .from('gastos')
       .insert({ ...columnas(g), autor_id: ctx.miembro.id }),
   )
-  return obtenerEstadoDe(ctx, g.fecha.slice(0, 7), zona)
+  const estado = await obtenerEstadoDe(ctx, g.fecha.slice(0, 7), zona)
+  await avisarSiCruza(ctx, estado, g)
+  return estado
 }
 
 export async function actualizarGastoDe(
@@ -135,10 +162,15 @@ export async function actualizarGastoDe(
   { id, ...g }: GastoEntrada & { id: string },
   zona: string,
 ) {
-  const previo = ok(
+  const previo: {
+    categoria_id: string
+    tipo_pago_id: string
+    monto: number
+    fecha: string
+  } | null = ok(
     await ctx.supabase
       .from('gastos')
-      .select('categoria_id, tipo_pago_id')
+      .select('categoria_id, tipo_pago_id, monto, fecha')
       .eq('id', id)
       .maybeSingle(),
   )
@@ -149,7 +181,12 @@ export async function actualizarGastoDe(
     await ctx.supabase.from('gastos').update(columnas(g)).eq('id', id).select('id'),
   )
   if (filas.length === 0) throw new ErrorApp('NO_ENCONTRADO', MENSAJES.gastoNoExiste)
-  return obtenerEstadoDe(ctx, g.fecha.slice(0, 7), zona)
+  const estado = await obtenerEstadoDe(ctx, g.fecha.slice(0, 7), zona)
+  const mismoGrupo =
+    previo.categoria_id === g.categoriaId &&
+    previo.fecha.slice(0, 7) === g.fecha.slice(0, 7)
+  await avisarSiCruza(ctx, estado, g, mismoGrupo ? Number(previo.monto) : 0)
+  return estado
 }
 
 export async function borrarGastoDe(

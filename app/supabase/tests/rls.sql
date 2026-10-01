@@ -233,6 +233,30 @@ begin
   end;
   perform test_rls.afirmar(v_ok, 'una categoría con gastos no se puede borrar');
 
+  ------------------------------------------------------ suscripciones push
+  insert into public.suscripciones_push (endpoint, p256dh, auth, miembro_id)
+    values ('https://push.test/admin', 'k', 'a', v_admin);
+
+  perform test_rls.como('intruso@prueba.test');
+  select count(*) into v_n from public.suscripciones_push;
+  perform test_rls.afirmar(v_n = 0, 'no miembro: no ve suscripciones');
+  perform test_rls.volver();
+
+  perform test_rls.como('ana@prueba.test');
+  select count(*) into v_n from public.suscripciones_push where endpoint = 'https://push.test/admin';
+  perform test_rls.afirmar(v_n = 1, 'miembro: ve las suscripciones de todos');
+  v_ok := false;
+  begin
+    insert into public.suscripciones_push (endpoint, p256dh, auth, miembro_id)
+      values ('https://push.test/falsa', 'k', 'a', v_admin);
+  exception when insufficient_privilege then v_ok := true;
+  end;
+  perform test_rls.afirmar(v_ok, 'miembro: no registra suscripción a nombre de otro');
+  insert into public.suscripciones_push (endpoint, p256dh, auth, miembro_id)
+    values ('https://push.test/ana', 'k', 'a', v_ana);
+  perform test_rls.afirmar(true, 'miembro: registra su propia suscripción');
+  perform test_rls.volver();
+
   raise notice 'RLS: todo bien';
 end;
 $$;
