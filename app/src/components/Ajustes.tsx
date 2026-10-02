@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate } from '@tanstack/react-router'
+import { dinero, sumar } from '@/lib/dinero'
 import { destinoLogin, traducirError } from '@/lib/errores-ui'
 import type { Tipo } from '@/lib/ajustes'
 import {
@@ -82,6 +83,13 @@ export function AjustesPantalla({ inicial }: Readonly<{ inicial: Ajustes }>) {
           error={msg(tipo)}
         />
       ))}
+
+      <SeccionPresupuesto
+        categorias={datos.categorias}
+        deshabilitado={deshabilitado}
+        correr={correr}
+        error={msg('presupuesto')}
+      />
 
       <SeccionNotificaciones />
 
@@ -175,31 +183,6 @@ function SeccionLista({
               }}
               onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
             />
-            {tipo === 'categorias' && (
-              <input
-                key={`p${x.presupuesto}`}
-                className={`${campo} max-w-32`}
-                type="number"
-                inputMode="decimal"
-                min="0"
-                step="0.01"
-                placeholder="Presupuesto"
-                defaultValue={x.presupuesto ?? ''}
-                disabled={deshabilitado}
-                aria-label={`Presupuesto mensual de ${x.nombre}`}
-                onBlur={(e) => {
-                  const v = e.target.value.trim()
-                  const presupuesto = v ? Number(v) : null
-                  if (presupuesto !== x.presupuesto)
-                    void correr(tipo, () =>
-                      fijarPresupuesto({ data: { id: x.id, presupuesto } }),
-                    ).then((bien) => {
-                      if (!bien) e.target.value = String(x.presupuesto ?? '')
-                    })
-                }}
-                onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
-              />
-            )}
             <Interruptor
               activo={x.activo}
               etiqueta={`${x.nombre} activo`}
@@ -258,6 +241,71 @@ function SeccionLista({
           Agregar
         </button>
       </form>
+      {error}
+    </section>
+  )
+}
+
+/** Una fila por categoría: nombre a la izquierda, monto a la derecha; cabe en un celular vertical. */
+function SeccionPresupuesto({
+  categorias,
+  deshabilitado,
+  correr,
+  error,
+}: Readonly<{
+  categorias: Elemento[]
+  deshabilitado: boolean
+  correr: Correr
+  error: React.ReactNode
+}>) {
+  const total = sumar(categorias.filter((c) => c.activo).map((c) => c.presupuesto ?? 0))
+
+  return (
+    <section className={tarjeta} aria-label="Presupuesto mensual">
+      <div className="mb-1 flex items-baseline justify-between gap-2">
+        <h3 className="font-semibold">Presupuesto mensual</h3>
+        <span className="text-sm font-semibold tabular-nums">{dinero(total)}</span>
+      </div>
+      <p className="mb-2 text-xs text-suave">Déjalo vacío para no tener límite.</p>
+      <ul className="divide-y divide-linea">
+        {categorias.map((x) => (
+          <li
+            key={x.id}
+            className={`flex items-center gap-3 py-2 ${x.activo ? '' : 'opacity-50'}`}
+          >
+            <span className="min-w-0 flex-1 truncate">
+              {x.nombre}
+              {!x.activo && <span className="text-xs text-suave"> (inactiva)</span>}
+            </span>
+            <label className="flex w-36 shrink-0 items-center rounded-lg border border-linea bg-papel px-3 focus-within:border-acento">
+              <span className="text-suave">$</span>
+              <input
+                key={`p${x.presupuesto}`}
+                className="w-full min-w-0 bg-transparent py-2 pl-1 text-right tabular-nums outline-none disabled:opacity-60"
+                type="number"
+                inputMode="decimal"
+                min="0"
+                step="0.01"
+                placeholder="Sin límite"
+                defaultValue={x.presupuesto ?? ''}
+                disabled={deshabilitado}
+                aria-label={`Presupuesto mensual de ${x.nombre}`}
+                onBlur={(e) => {
+                  const v = e.target.value.trim()
+                  const presupuesto = v ? Number(v) : null
+                  if (presupuesto !== x.presupuesto)
+                    void correr('presupuesto', () =>
+                      fijarPresupuesto({ data: { id: x.id, presupuesto } }),
+                    ).then((bien) => {
+                      if (!bien) e.target.value = String(x.presupuesto ?? '')
+                    })
+                }}
+                onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+              />
+            </label>
+          </li>
+        ))}
+      </ul>
       {error}
     </section>
   )
