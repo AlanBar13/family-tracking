@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Contexto } from './miembro'
 import { ErrorApp, leerErrorApp, paraCliente } from '@/lib/errores'
 import {
@@ -7,6 +7,9 @@ import {
   borrarGastoDe,
   traducirErrorDb,
 } from './gastos-logica'
+import { avisarATodos } from './push-logica'
+
+vi.mock('./push-logica', () => ({ avisarATodos: vi.fn(async () => {}) }))
 
 vi.spyOn(console, 'error').mockImplementation(() => {})
 
@@ -15,26 +18,42 @@ const CAT_ACTIVA = uuid(1)
 const CAT_INACTIVA = uuid(2)
 const PAGO = uuid(3)
 const GASTO = uuid(4)
+const CAT_PRES = uuid(5)
 
 type Llamada = { tabla: string; op: string; datos?: unknown }
 
 /** Supabase simulado: cada consulta es un thenable que resuelve según tabla y operación. */
-function ctxFalso(opciones: { gastoExiste?: boolean } = {}) {
-  const { gastoExiste = true } = opciones
+function ctxFalso(
+  opciones: {
+    gastoExiste?: boolean
+    presupuesto?: number | null
+    /** Montos que devuelve la consulta del mes (ya incluyen el gasto guardado). */
+    montos?: number[]
+    previoCategoria?: string
+  } = {},
+) {
+  const { gastoExiste = true, presupuesto = null, montos = [], previoCategoria } = opciones
   const llamadas: Llamada[] = []
+  const consultasMonto = { n: 0 }
   const from = (tabla: string) => {
     let op = 'select'
     let idFiltro: string | undefined
     let columnas = ''
     const q: Record<string, unknown> = {}
     const respuesta = () => {
-      if (tabla === 'categorias' && op === 'select' && columnas === 'activa')
+      if (tabla === 'gastos' && op === 'select' && columnas === 'monto') {
+        consultasMonto.n++
+        return { data: montos.map((monto) => ({ monto })), error: null }
+      }
+      if (tabla === 'categorias' && op === 'select' && columnas.startsWith('activa'))
         return {
           data:
-            idFiltro === CAT_ACTIVA
-              ? { activa: true }
+            idFiltro === CAT_PRES
+              ? { activa: true, nombre: 'Súper', presupuesto }
+              : idFiltro === CAT_ACTIVA
+              ? { activa: true, nombre: 'Súper', presupuesto: null }
               : idFiltro === CAT_INACTIVA
-                ? { activa: false }
+                ? { activa: false, nombre: 'Vieja', presupuesto: null }
                 : null,
           error: null,
         }
@@ -44,7 +63,7 @@ function ctxFalso(opciones: { gastoExiste?: boolean } = {}) {
         return {
           data: gastoExiste
             ? {
-                categoria_id: CAT_INACTIVA,
+                categoria_id: previoCategoria ?? CAT_INACTIVA,
                 tipo_pago_id: PAGO,
                 monto: 10,
                 fecha: '2026-03-01',
@@ -79,7 +98,7 @@ function ctxFalso(opciones: { gastoExiste?: boolean } = {}) {
     usuario: { id: 'u1' },
     miembro: { id: 'm-sesion', nombre: 'Ana', correo: 'ana@casa.mx', es_admin: false },
   } as unknown as Contexto
-  return { ctx, llamadas }
+  return { ctx, llamadas, consultasMonto }
 }
 
 const entrada = {
@@ -90,7 +109,6 @@ const entrada = {
   tipoPagoId: PAGO,
   notas: '',
 }
-const ZONA = 'America/Mexico_City'
 
 async function fallo(p: Promise<unknown>) {
   try {
@@ -104,7 +122,7 @@ async function fallo(p: Promise<unknown>) {
 describe('gastos (Supabase simulado)', () => {
   it('el autor sale de la sesión aunque el cliente mande otro', async () => {
     const { ctx, llamadas } = ctxFalso()
-    await agregarGastoDe(ctx, { ...entrada, autorId: 'hacker' } as never, ZONA)
+    await agregarGastoDe(ctx, { ...entrada, autorId: 'hacker' } as never)
     const insert = llamadas.find((l) => l.op === 'insert')!.datos as Record<
       string,
       unknown
@@ -115,9 +133,7 @@ describe('gastos (Supabase simulado)', () => {
 
   it('rechaza una categoría inactiva al crear', async () => {
     const { ctx } = ctxFalso()
-    const e = await fallo(
-      agregarGastoDe(ctx, { ...entrada, categoriaId: CAT_INACTIVA }, ZONA),
-    )
+    const e = await fallo(agregarGastoDe(ctx, { ...entrada, categoriaId: CAT_INACTIVA }))
     expect(e).toMatchObject({
       codigo: 'VALIDACION',
       message: 'Esa categoría no existe. Revísala en Ajustes.',
@@ -126,24 +142,20 @@ describe('gastos (Supabase simulado)', () => {
 
   it('rechaza una categoría inexistente', async () => {
     const { ctx } = ctxFalso()
-    const e = await fallo(agregarGastoDe(ctx, { ...entrada, categoriaId: uuid(9) }, ZONA))
+    const e = await fallo(agregarGastoDe(ctx, { ...entrada, categoriaId: uuid(9) }))
     expect(e.codigo).toBe('VALIDACION')
   })
 
   it('al editar no toca autor_id y permite conservar la categoría inactiva que ya tenía', async () => {
     const { ctx, llamadas } = ctxFalso()
-    await actualizarGastoDe(
-      ctx,
-      { ...entrada, id: GASTO, categoriaId: CAT_INACTIVA },
-      ZONA,
-    )
+    await actualizarGastoDe(ctx, { ...entrada, id: GASTO, categoriaId: CAT_INACTIVA })
     const upd = llamadas.find((l) => l.op === 'update')!.datos as Record<string, unknown>
     expect(upd).not.toHaveProperty('autor_id')
   })
 
   it('editar un gasto inexistente: NO_ENCONTRADO', async () => {
     const { ctx } = ctxFalso({ gastoExiste: false })
-    const e = await fallo(actualizarGastoDe(ctx, { ...entrada, id: GASTO }, ZONA))
+    const e = await fallo(actualizarGastoDe(ctx, { ...entrada, id: GASTO }))
     expect(e).toMatchObject({
       codigo: 'NO_ENCONTRADO',
       message: 'Ese gasto ya no existe.',
@@ -152,17 +164,69 @@ describe('gastos (Supabase simulado)', () => {
 
   it('borrar un gasto inexistente: NO_ENCONTRADO', async () => {
     const { ctx } = ctxFalso({ gastoExiste: false })
-    const e = await fallo(borrarGastoDe(ctx, { id: GASTO, mes: '2026-03' }, ZONA))
+    const e = await fallo(borrarGastoDe(ctx, { id: GASTO, mes: '2026-03' }))
     expect(e).toMatchObject({
       codigo: 'NO_ENCONTRADO',
       message: 'Ese gasto ya no existe.',
     })
   })
 
-  it('borrar devuelve el estado del mes que se veía', async () => {
+  it('borrar devuelve el mes que se veía', async () => {
     const { ctx } = ctxFalso()
-    const estado = await borrarGastoDe(ctx, { id: GASTO, mes: '2026-03' }, ZONA)
-    expect(estado.mes).toBe('2026-03')
+    const r = await borrarGastoDe(ctx, { id: GASTO, mes: '2026-03' })
+    expect(r).toEqual({ mes: '2026-03' })
+  })
+})
+
+describe('aviso de presupuesto', () => {
+  beforeEach(() => vi.mocked(avisarATodos).mockClear())
+  const conPres = { ...entrada, categoriaId: CAT_PRES }
+
+  it('categoría sin presupuesto: no consulta montos ni avisa', async () => {
+    const { ctx, consultasMonto } = ctxFalso({ presupuesto: null, montos: [999] })
+    const r = await agregarGastoDe(ctx, conPres)
+    expect(r).toEqual({ mes: '2026-03' })
+    expect(consultasMonto.n).toBe(0)
+    expect(avisarATodos).not.toHaveBeenCalled()
+  })
+
+  it('agregar que cruza el 80% avisa una vez con el tag de la categoría', async () => {
+    const { ctx, consultasMonto } = ctxFalso({ presupuesto: 100, montos: [55, 25] })
+    await agregarGastoDe(ctx, conPres)
+    expect(consultasMonto.n).toBe(1)
+    expect(avisarATodos).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(avisarATodos).mock.calls[0]![1]).toMatchObject({
+      tag: `presupuesto-${CAT_PRES}`,
+    })
+  })
+
+  it('agregar que no cruza no avisa', async () => {
+    const { ctx } = ctxFalso({ presupuesto: 100, montos: [30, 25] })
+    await agregarGastoDe(ctx, conPres)
+    expect(avisarATodos).not.toHaveBeenCalled()
+  })
+
+  it('actualizar el mismo gasto (mismo mes y categoría) descuenta el previo y no avisa si ya estaba arriba', async () => {
+    // previo 10, ahora 25: antes 80 (ya en 80%), después 95.
+    const { ctx } = ctxFalso({
+      presupuesto: 100,
+      montos: [70, 25],
+      previoCategoria: CAT_PRES,
+    })
+    const r = await actualizarGastoDe(ctx, { ...conPres, id: GASTO })
+    expect(r).toEqual({ mes: '2026-03' })
+    expect(avisarATodos).not.toHaveBeenCalled()
+  })
+
+  it('actualizar que sí cruza usando el previo avisa', async () => {
+    // previo 10, ahora 25: antes 70 (bajo 80), después 85.
+    const { ctx } = ctxFalso({
+      presupuesto: 100,
+      montos: [60, 25],
+      previoCategoria: CAT_PRES,
+    })
+    await actualizarGastoDe(ctx, { ...conPres, id: GASTO })
+    expect(avisarATodos).toHaveBeenCalledTimes(1)
   })
 })
 

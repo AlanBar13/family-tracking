@@ -25,12 +25,7 @@ export async function resolverMiembro(
 
   const correo = (usuario.email ?? '').toLowerCase()
 
-  const vinculo = await supabase.rpc('vincular_miembro')
-  if (vinculo.error) {
-    console.error('vincular_miembro falló', vinculo.error)
-    throw new ErrorApp('INTERNO', 'Algo salió mal. Intenta de nuevo.')
-  }
-
+  // La RLS usa el correo del JWT, así que el select funciona antes de vincular.
   const { data: miembro, error: errorMiembro } = await supabase
     .from('miembros')
     .select('*')
@@ -42,6 +37,14 @@ export async function resolverMiembro(
     throw new ErrorApp('INTERNO', 'Algo salió mal. Intenta de nuevo.')
   }
   if (!miembro) throw new ErrorApp('NO_AUTORIZADO', mensajeNoAutorizado(correo))
+
+  if (!miembro.user_id) {
+    const vinculo = await supabase.rpc('vincular_miembro')
+    if (vinculo.error) {
+      console.error('vincular_miembro falló', vinculo.error)
+      throw new ErrorApp('INTERNO', 'Algo salió mal. Intenta de nuevo.')
+    }
+  }
 
   return { supabase, usuario, miembro }
 }

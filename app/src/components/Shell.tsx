@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 import { clienteNavegador } from '@/lib/supabase/navegador'
+import { miembroValidado } from '@/lib/miembro-validado'
 import { cerrarSesion } from '@/server/auth'
 
 export function Shell({
@@ -13,6 +14,7 @@ export function Shell({
 
   async function salir() {
     setSaliendo(true)
+    miembroValidado.actual = undefined
     try {
       await cerrarSesion()
       await clienteNavegador().auth.signOut()

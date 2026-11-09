@@ -1,14 +1,24 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/lib/database.types'
 import { ErrorApp } from '@/lib/errores'
 import { resolverMiembro } from './miembro'
 
-type Fila = { id: string; correo: string; nombre: string; activo: boolean }
+type Fila = {
+  id: string
+  correo: string
+  nombre: string
+  activo: boolean
+  user_id?: string | null
+}
 
 function clienteFalso(opciones: { correo?: string | null; filas?: Fila[] }) {
   const usuario = opciones.correo ? { id: 'u1', email: opciones.correo } : null
   const filtros: Partial<Fila>[] = []
+  const rpc = vi.fn<(nombre: string) => Promise<{ data: null; error: null }>>(async () => ({
+    data: null,
+    error: null,
+  }))
   const consulta = {
     select: () => consulta,
     eq: (columna: keyof Fila, valor: unknown) => {
@@ -26,9 +36,9 @@ function clienteFalso(opciones: { correo?: string | null; filas?: Fila[] }) {
   }
   return {
     auth: { getUser: async () => ({ data: { user: usuario }, error: null }) },
-    rpc: async () => ({ data: null, error: null }),
+    rpc,
     from: () => consulta,
-  } as unknown as SupabaseClient<Database>
+  } as unknown as SupabaseClient<Database> & { rpc: typeof rpc }
 }
 
 const activo: Fila = { id: 'm1', correo: 'ana@casa.mx', nombre: 'Ana', activo: true }
@@ -74,5 +84,23 @@ describe('resolverMiembro', () => {
     expect(ctx.miembro).toEqual(activo)
     expect(ctx.usuario.email).toBe('ana@casa.mx')
     expect(ctx.supabase).toBeDefined()
+  })
+
+  it('con user_id ya vinculado no llama vincular_miembro', async () => {
+    const cliente = clienteFalso({
+      correo: 'ana@casa.mx',
+      filas: [{ ...activo, user_id: 'u1' }],
+    })
+    await resolverMiembro(cliente)
+    expect(cliente.rpc).not.toHaveBeenCalled()
+  })
+
+  it('sin user_id llama vincular_miembro', async () => {
+    const cliente = clienteFalso({
+      correo: 'ana@casa.mx',
+      filas: [{ ...activo, user_id: null }],
+    })
+    await resolverMiembro(cliente)
+    expect(cliente.rpc).toHaveBeenCalledWith('vincular_miembro')
   })
 })

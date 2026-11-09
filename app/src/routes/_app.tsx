@@ -7,6 +7,11 @@ import { obtenerSesion, type Sesion } from '@/server/auth'
 
 export const Route = createFileRoute('/_app')({
   beforeLoad: async () => {
+    // ponytail: la validación real vive en las server functions (requerirMiembro);
+    // en el navegador se reutiliza el miembro ya validado para no repetir la sesión.
+    if (typeof window !== 'undefined' && miembroValidado.actual) {
+      return { miembro: miembroValidado.actual }
+    }
     let sesion: Sesion
     try {
       sesion = await obtenerSesion()

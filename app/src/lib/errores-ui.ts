@@ -1,4 +1,5 @@
 import { leerErrorApp, type CodigoError } from './errores'
+import { miembroValidado } from './miembro-validado'
 import { MENSAJES } from './mensajes'
 
 export type AccionError = 'reintentar' | 'login' | 'ninguna'
@@ -83,9 +84,10 @@ export function traducirError(
 /** A dónde mandar a la persona si el error es de sesión; `null` si no lo es. */
 export function destinoLogin(e: unknown) {
   const { codigo } = leerErrorApp(e)
-  if (codigo === 'NO_AUTENTICADO')
-    return { to: '/login', search: { error: 'sesion' } } as const
-  if (codigo === 'NO_AUTORIZADO')
-    return { to: '/login', search: { error: 'no_autorizado' } } as const
-  return null
+  if (codigo !== 'NO_AUTENTICADO' && codigo !== 'NO_AUTORIZADO') return null
+  // Efecto secundario: el siguiente beforeLoad debe revalidar la sesión.
+  miembroValidado.actual = undefined
+  return codigo === 'NO_AUTENTICADO'
+    ? ({ to: '/login', search: { error: 'sesion' } } as const)
+    : ({ to: '/login', search: { error: 'no_autorizado' } } as const)
 }

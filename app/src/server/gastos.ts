@@ -59,7 +59,7 @@ export const agregarGasto = createServerFn({ method: 'POST' })
   .handler(({ data }) =>
     ejecutar(async () => {
       const d = eAgregar.validar(data)
-      return agregarGastoDe(await requerirMiembro(), d, zona())
+      return agregarGastoDe(await requerirMiembro(), d)
     }),
   )
 
@@ -68,7 +68,7 @@ export const actualizarGasto = createServerFn({ method: 'POST' })
   .handler(({ data }) =>
     ejecutar(async () => {
       const d = eActualizar.validar(data)
-      return actualizarGastoDe(await requerirMiembro(), d, zona())
+      return actualizarGastoDe(await requerirMiembro(), d)
     }),
   )
 
@@ -77,6 +77,6 @@ export const borrarGasto = createServerFn({ method: 'POST' })
   .handler(({ data }) =>
     ejecutar(async () => {
       const d = eBorrar.validar(data)
-      return borrarGastoDe(await requerirMiembro(), d, zona())
+      return borrarGastoDe(await requerirMiembro(), d)
     }),
   )

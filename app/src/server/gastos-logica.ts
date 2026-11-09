@@ -105,7 +105,11 @@ async function validarReferencias(
   actual?: { categoria_id: string; tipo_pago_id: string },
 ) {
   const [c, t] = await Promise.all([
-    supabase.from('categorias').select('activa').eq('id', g.categoriaId).maybeSingle(),
+    supabase
+      .from('categorias')
+      .select('activa, nombre, presupuesto')
+      .eq('id', g.categoriaId)
+      .maybeSingle(),
     supabase.from('tipos_pago').select('activo').eq('id', g.tipoPagoId).maybeSingle(),
   ])
   const cat = ok(c)
@@ -114,6 +118,7 @@ async function validarReferencias(
     throw new ErrorApp('VALIDACION', MENSAJES.categoriaInvalida)
   if (!tipo || (!tipo.activo && g.tipoPagoId !== actual?.tipo_pago_id))
     throw new ErrorApp('VALIDACION', MENSAJES.tipoPagoInvalido)
+  return cat
 }
 
 const columnas = (g: GastoEntrada) => ({
@@ -129,38 +134,49 @@ const columnas = (g: GastoEntrada) => ({
  * Si el gasto hizo que su categoría cruzara el 80% o el 100% del presupuesto del mes,
  * avisa a todos. `previo`: lo que el mismo gasto ya sumaba a esa categoría y mes.
  */
-async function avisarSiCruza(ctx: Contexto, estado: Estado, g: GastoEntrada, previo = 0) {
-  const cat = estado.config.categorias.find((c) => c.id === g.categoriaId)
-  if (!cat?.presupuesto) return
-  const despues = sumar(
-    estado.gastos.filter((x) => x.categoriaId === cat.id).map((x) => x.monto),
+async function avisarSiCruza(
+  ctx: Contexto,
+  cat: { nombre: string; presupuesto: number | string | null },
+  g: GastoEntrada,
+  previo = 0,
+) {
+  if (cat.presupuesto === null) return
+  const presupuesto = Number(cat.presupuesto)
+  if (!presupuesto) return
+  const { desde, hasta } = rangoDelMes(g.fecha.slice(0, 7))
+  const filas = ok(
+    await ctx.supabase
+      .from('gastos')
+      .select('monto')
+      .eq('categoria_id', g.categoriaId)
+      .gte('fecha', desde)
+      .lt('fecha', hasta),
   )
+  const despues = sumar(filas.map((x) => Number(x.monto)))
   const antes = sumar([despues, -g.monto, previo])
-  const umbral = umbralCruzado(antes, despues, cat.presupuesto)
+  const umbral = umbralCruzado(antes, despues, presupuesto)
   if (umbral)
     await avisarATodos(ctx, {
-      ...mensajeAviso(cat.nombre, despues, cat.presupuesto, umbral),
-      tag: `presupuesto-${cat.id}`,
+      ...mensajeAviso(cat.nombre, despues, presupuesto, umbral),
+      tag: `presupuesto-${g.categoriaId}`,
     })
 }
 
-export async function agregarGastoDe(ctx: Contexto, g: GastoEntrada, zona: string) {
-  await validarReferencias(ctx.supabase, g)
+export async function agregarGastoDe(ctx: Contexto, g: GastoEntrada) {
+  const cat = await validarReferencias(ctx.supabase, g)
   // El autor sale SIEMPRE de la sesión, nunca del cliente.
   ok(
     await ctx.supabase
       .from('gastos')
       .insert({ ...columnas(g), autor_id: ctx.miembro.id }),
   )
-  const estado = await obtenerEstadoDe(ctx, g.fecha.slice(0, 7), zona)
-  await avisarSiCruza(ctx, estado, g)
-  return estado
+  await avisarSiCruza(ctx, cat, g)
+  return { mes: g.fecha.slice(0, 7) }
 }
 
 export async function actualizarGastoDe(
   ctx: Contexto,
   { id, ...g }: GastoEntrada & { id: string },
-  zona: string,
 ) {
   const previo: {
     categoria_id: string
@@ -175,26 +191,24 @@ export async function actualizarGastoDe(
       .maybeSingle(),
   )
   if (!previo) throw new ErrorApp('NO_ENCONTRADO', MENSAJES.gastoNoExiste)
-  await validarReferencias(ctx.supabase, g, previo)
+  const cat = await validarReferencias(ctx.supabase, g, previo)
   // Sin autor_id: el autor original no cambia.
   const filas = ok(
     await ctx.supabase.from('gastos').update(columnas(g)).eq('id', id).select('id'),
   )
   if (filas.length === 0) throw new ErrorApp('NO_ENCONTRADO', MENSAJES.gastoNoExiste)
-  const estado = await obtenerEstadoDe(ctx, g.fecha.slice(0, 7), zona)
   const mismoGrupo =
     previo.categoria_id === g.categoriaId &&
     previo.fecha.slice(0, 7) === g.fecha.slice(0, 7)
-  await avisarSiCruza(ctx, estado, g, mismoGrupo ? Number(previo.monto) : 0)
-  return estado
+  await avisarSiCruza(ctx, cat, g, mismoGrupo ? Number(previo.monto) : 0)
+  return { mes: g.fecha.slice(0, 7) }
 }
 
 export async function borrarGastoDe(
   ctx: Contexto,
   { id, mes }: { id: string; mes: string },
-  zona: string,
 ) {
   const filas = ok(await ctx.supabase.from('gastos').delete().eq('id', id).select('id'))
   if (filas.length === 0) throw new ErrorApp('NO_ENCONTRADO', MENSAJES.gastoNoExiste)
-  return obtenerEstadoDe(ctx, mes, zona)
+  return { mes }
 }

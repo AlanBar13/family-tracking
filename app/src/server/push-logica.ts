@@ -22,15 +22,26 @@ export async function avisarATodos(
       },
       TTL: 60 * 60 * 24,
     }
-    const resultados = await Promise.allSettled(
-      data.map((s) =>
-        webpush.sendNotification(
-          { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
-          JSON.stringify(aviso),
-          opciones,
+    // El `timeout` de web-push es de socket inactivo; el tope total va aquí.
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const resultados = await Promise.race([
+      Promise.allSettled(
+        data.map((s) =>
+          webpush.sendNotification(
+            { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
+            JSON.stringify(aviso),
+            opciones,
+          ),
         ),
       ),
-    )
+      new Promise<null>((resolve) => {
+        timer = setTimeout(() => resolve(null), 5000)
+      }),
+    ]).finally(() => clearTimeout(timer))
+    if (!resultados) {
+      console.error('push: se agotó el tiempo de envío')
+      return
+    }
     // 404/410: el navegador ya no tiene esa suscripción.
     const caducadas = data.filter((_, i) => {
       const r = resultados[i]!
