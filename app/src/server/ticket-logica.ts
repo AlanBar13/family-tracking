@@ -7,6 +7,8 @@ import {
   type PropuestaTicket,
 } from '@/lib/ticket'
 
+import { llamarGemini } from './gemini'
+
 type Opcion = { id: string; nombre: string }
 
 export const MENSAJES_TICKET = {
@@ -60,45 +62,11 @@ export async function leerTicketDe(
     },
   }
 
-  let r: Response
-  try {
-    r = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(o.modelo)}:generateContent`,
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', 'x-goog-api-key': o.llave },
-        body: JSON.stringify(cuerpo),
-        signal: AbortSignal.timeout(45_000),
-      },
-    )
-  } catch (e) {
-    console.error('Gemini: fallo de red o timeout', e)
-    throw new ErrorApp('EXTERNO', MENSAJES_TICKET.generico)
-  }
-
-  const texto = await r.text()
-  if (!r.ok) {
-    let detalle = texto.slice(0, 200)
-    try {
-      detalle = JSON.parse(texto).error.message
-    } catch {
-      /* se queda el texto recortado */
-    }
-    console.error('Gemini respondió', r.status, detalle)
-    if (r.status === 429) throw new ErrorApp('EXTERNO', MENSAJES_TICKET.saturado)
-    if (r.status === 400 && /API key/i.test(detalle))
-      throw new ErrorApp('EXTERNO', MENSAJES_TICKET.llave)
-    throw new ErrorApp('EXTERNO', MENSAJES_TICKET.generico)
-  }
-
-  let crudo: Record<string, unknown>
-  try {
-    crudo = JSON.parse(JSON.parse(texto).candidates[0].content.parts[0].text)
-    if (crudo === null || typeof crudo !== 'object') throw new Error('no es objeto')
-  } catch (e) {
-    console.error('Gemini: respuesta ilegible', e)
-    throw new ErrorApp('EXTERNO', MENSAJES_TICKET.ilegible)
-  }
+  const crudo = await llamarGemini(cuerpo, {
+    llave: o.llave,
+    modelo: o.modelo,
+    mensajes: MENSAJES_TICKET,
+  })
 
   return interpretarRespuesta(crudo, o, o.hoy)
 }

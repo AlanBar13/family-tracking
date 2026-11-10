@@ -400,6 +400,8 @@ _(agregar aquí, con fecha, cualquier decisión que cambie o precise lo anterior
   - El total "en la base" se calcula solo sobre los IDs del CSV, para que gastos previos no lo distorsionen. Con `--aplicar`, si no coincide sale con código 1.
   - En Windows, salir tras una confirmación fallida con stdin por tubería imprime un `Assertion failed` de libuv: es cosmético.
 
+- **2026-11-09 (análisis con IA):** el botón "¿En qué podemos mejorar?" del Resumen llama a Gemini solo desde el servidor (`analizarGastos`), con un resumen en texto del mes vs el anterior. No se envían correos ni nombres de miembros. No se persiste nada. Usa `llamarGemini` (`server/gemini.ts`), compartido con el lector de tickets, y el mismo `fetch` de 60 s del ticket en el cliente.
+
 - **2026-09-30 (paso 12):**
   - **Adaptador de Vercel: `nitro/vite`** (plugin junto a `tanstackStart()`), `engines.node = 24.x`. `pnpm build` genera `.output` (preset `node-server`) y en Vercel el preset se detecta solo.
   - **Se eliminó `app/vercel.json`:** las cabeceras (seguridad, CSP, `no-cache` de `sw.js` y manifest) van en `nitro({ routeRules })` de `vite.config.ts`, para que apliquen también en `pnpm start`. Fallback documentado en `DESPLIEGUE.md` si en Vercel no llegan a los estáticos.

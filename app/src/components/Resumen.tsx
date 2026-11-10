@@ -1,4 +1,8 @@
+import { useNavigate } from '@tanstack/react-router'
+import { useState } from 'react'
 import { dinero, dineroCorto, sumar } from '@/lib/dinero'
+import { destinoLogin, traducirError } from '@/lib/errores-ui'
+import { fetchConTimeout, TIMEOUT_TICKET } from '@/lib/fetch-timeout'
 import {
   acumular,
   anchoBarra,
@@ -7,6 +11,7 @@ import {
   nombreDeMiembro,
   porcentaje,
 } from '@/lib/resumen'
+import { analizarGastos } from '@/server/analisis'
 import type { Estado } from '@/server/gastos-logica'
 
 export function Vacio({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -59,6 +64,58 @@ function Desglose({
           </div>
         ))}
       </div>
+    </section>
+  )
+}
+
+type Recomendacion = { titulo: string; detalle: string }
+
+/** Análisis con IA del mes; no se guarda, se pierde al cambiar de mes o recargar. */
+function Mejoras({ mes }: Readonly<{ mes: string }>) {
+  const navigate = useNavigate()
+  const [cargando, setCargando] = useState(false)
+  const [lista, setLista] = useState<Recomendacion[]>([])
+  const [error, setError] = useState<string | null>(null)
+
+  async function analizar() {
+    setCargando(true)
+    setError(null)
+    try {
+      const r = await analizarGastos({
+        data: { mes },
+        fetch: fetchConTimeout(TIMEOUT_TICKET),
+      })
+      setLista(r.recomendaciones)
+    } catch (e) {
+      const login = destinoLogin(e)
+      if (login) void navigate(login)
+      else setError(traducirError(e).mensaje)
+    } finally {
+      setCargando(false)
+    }
+  }
+
+  return (
+    <section className="flex flex-col gap-3">
+      <button
+        type="button"
+        onClick={() => void analizar()}
+        disabled={cargando}
+        className="rounded-full bg-acento px-4 py-3 font-semibold text-papel disabled:opacity-60"
+      >
+        {cargando ? 'Analizando…' : '¿En qué podemos mejorar?'}
+      </button>
+      {error && (
+        <p role="alert" className="text-sm text-peligro">
+          {error}
+        </p>
+      )}
+      {lista.map((r, i) => (
+        <div key={`${i}-${r.titulo}`} className="rounded-tarjeta bg-tarjeta p-4 shadow-tarjeta">
+          <h2 className="text-sm font-semibold">{r.titulo}</h2>
+          <p className="mt-1 text-sm text-suave">{r.detalle}</p>
+        </div>
+      ))}
     </section>
   )
 }
@@ -120,6 +177,7 @@ export function Resumen({ estado }: Readonly<{ estado: Estado }>) {
       <Desglose titulo="Por categoría" filas={porCategoria} total={total} />
       <Desglose titulo="Por tipo de pago" filas={porTipo} total={total} />
       <Desglose titulo="Por persona" filas={porPersona} total={total} />
+      <Mejoras key={estado.mes} mes={estado.mes} />
     </div>
   )
 }
