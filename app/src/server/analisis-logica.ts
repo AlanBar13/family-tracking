@@ -16,8 +16,17 @@ export const MENSAJES_ANALISIS = {
 } as const
 
 const esquemaRespuesta = z.object({
+  diagnostico: z.string().max(600),
   recomendaciones: z
-    .array(z.object({ titulo: z.string().max(120), detalle: z.string().max(600) }))
+    .array(
+      z.object({
+        titulo: z.string().max(120),
+        detalle: z.string().max(600),
+        accion: z.string().max(250),
+        ahorroMensual: z.number().min(0),
+        prioridad: z.enum(['alta', 'media', 'baja']),
+      }),
+    )
     .min(1)
     .max(5),
 })
@@ -53,5 +62,5 @@ export async function analizarGastosDe(
     console.error('Gemini: forma inesperada', r.error)
     throw new ErrorApp('EXTERNO', MENSAJES_ANALISIS.ilegible)
   }
-  return { recomendaciones: r.data.recomendaciones }
+  return { diagnostico: r.data.diagnostico, recomendaciones: r.data.recomendaciones }
 }

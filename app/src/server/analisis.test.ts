@@ -89,16 +89,29 @@ describe('analizarGastosDe', () => {
     expect(fetchFalso).not.toHaveBeenCalled()
   })
 
-  it('respuesta válida: devuelve las recomendaciones', async () => {
-    const recomendaciones = [{ titulo: 'Ahorra', detalle: 'Compra a granel.' }]
-    fetchFalso.mockResolvedValue(respuestaGemini({ recomendaciones }))
-    expect(await analizar()).toEqual({ recomendaciones })
+  const rec = {
+    titulo: 'Ahorra',
+    detalle: 'Compra a granel.',
+    accion: 'Fijar tope de $500 en súper.',
+    ahorroMensual: 200,
+    prioridad: 'alta',
+  }
+  const respuesta = { diagnostico: 'Gastaste poco.', recomendaciones: [rec] }
+
+  it('respuesta válida: devuelve diagnóstico y recomendaciones', async () => {
+    fetchFalso.mockResolvedValue(respuestaGemini(respuesta))
+    expect(await analizar()).toEqual(respuesta)
+  })
+
+  it('prioridad inválida: respuesta ilegible', async () => {
+    fetchFalso.mockResolvedValue(
+      respuestaGemini({ ...respuesta, recomendaciones: [{ ...rec, prioridad: 'urgente' }] }),
+    )
+    expect((await fallo(analizar())).message).toBe(MENSAJES_ANALISIS.ilegible)
   })
 
   it('el body enviado a Gemini no contiene correos ni nombres de miembros', async () => {
-    fetchFalso.mockResolvedValue(
-      respuestaGemini({ recomendaciones: [{ titulo: 't', detalle: 'd' }] }),
-    )
+    fetchFalso.mockResolvedValue(respuestaGemini(respuesta))
     await analizar()
     const [url, init] = fetchFalso.mock.calls[0]!
     expect(url).toContain('gemini-test')
@@ -113,7 +126,7 @@ describe('analizarGastosDe', () => {
   })
 
   it('forma inválida: mensaje de respuesta ilegible', async () => {
-    fetchFalso.mockResolvedValue(respuestaGemini({ recomendaciones: [] }))
+    fetchFalso.mockResolvedValue(respuestaGemini({ diagnostico: 'x', recomendaciones: [] }))
     const e = await fallo(analizar())
     expect(e.codigo).toBe('EXTERNO')
     expect(e.message).toBe(MENSAJES_ANALISIS.ilegible)

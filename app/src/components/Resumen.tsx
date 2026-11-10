@@ -68,14 +68,21 @@ function Desglose({
   )
 }
 
-type Recomendacion = { titulo: string; detalle: string }
+type Analisis = Awaited<ReturnType<typeof analizarGastos>>
+
+const PRIORIDAD = {
+  alta: { texto: 'Alta', clase: 'text-peligro' },
+  media: { texto: 'Media', clase: 'text-acento' },
+  baja: { texto: 'Baja', clase: 'text-suave' },
+} as const
 
 /** Análisis con IA del mes; no se guarda, se pierde al cambiar de mes o recargar. */
 function Mejoras({ mes }: Readonly<{ mes: string }>) {
   const navigate = useNavigate()
   const [cargando, setCargando] = useState(false)
-  const [lista, setLista] = useState<Recomendacion[]>([])
+  const [analisis, setAnalisis] = useState<Analisis | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const ahorroTotal = sumar(analisis?.recomendaciones.map((r) => r.ahorroMensual) ?? [])
 
   async function analizar() {
     setCargando(true)
@@ -85,7 +92,7 @@ function Mejoras({ mes }: Readonly<{ mes: string }>) {
         data: { mes },
         fetch: fetchConTimeout(TIMEOUT_TICKET),
       })
-      setLista(r.recomendaciones)
+      setAnalisis(r)
     } catch (e) {
       const login = destinoLogin(e)
       if (login) void navigate(login)
@@ -110,10 +117,31 @@ function Mejoras({ mes }: Readonly<{ mes: string }>) {
           {error}
         </p>
       )}
-      {lista.map((r, i) => (
+      {analisis && (
+        <div className="rounded-tarjeta bg-tarjeta p-4 shadow-tarjeta">
+          <p className="text-sm">{analisis.diagnostico}</p>
+          {ahorroTotal > 0 && (
+            <p className="mt-2 text-sm font-semibold">
+              Ahorro potencial: {dinero(ahorroTotal)} al mes
+            </p>
+          )}
+        </div>
+      )}
+      {analisis?.recomendaciones.map((r, i) => (
         <div key={`${i}-${r.titulo}`} className="rounded-tarjeta bg-tarjeta p-4 shadow-tarjeta">
-          <h2 className="text-sm font-semibold">{r.titulo}</h2>
+          <div className="flex items-baseline justify-between gap-3">
+            <h2 className="text-sm font-semibold">{r.titulo}</h2>
+            <span className={`shrink-0 text-xs font-semibold ${PRIORIDAD[r.prioridad].clase}`}>
+              {PRIORIDAD[r.prioridad].texto}
+            </span>
+          </div>
           <p className="mt-1 text-sm text-suave">{r.detalle}</p>
+          <p className="mt-2 text-sm">Qué hacer: {r.accion}</p>
+          {r.ahorroMensual > 0 && (
+            <p className="mt-1 text-xs text-suave">
+              Ahorro estimado: {dinero(r.ahorroMensual)}/mes
+            </p>
+          )}
         </div>
       ))}
     </section>

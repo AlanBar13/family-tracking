@@ -39,9 +39,18 @@ describe('resumenParaAnalisis', () => {
     expect(t).toContain('Total del mes: $1,000.00')
     expect(t).toContain('$500.00')
     expect(t).toContain('(+100%)')
-    expect(t).toContain('Super: $600.10 (60% del total), presupuesto $1,000.00 (60% usado)')
-    expect(t).toContain('Gasolina: $399.90 (40% del total); vs mes anterior nuevo')
+    expect(t).toContain('Super: $600.10 (60% del total, 1 compras), presupuesto $1,000.00 (60% usado)')
+    expect(t).toContain('Gasolina: $399.90 (40% del total, 1 compras); vs mes anterior nuevo')
+    expect(t).toContain('Promedio diario: $100.00')
+    expect(t).toContain('Mes en curso: día 10 de 31; proyección al cierre $3,100.00')
+    expect(t).toContain('Presupuesto total: $1,000.00; gastado en categorías con presupuesto: $600.10 (60%)')
     expect(t).toContain('- Walmart: $600.10 (2026-03-05)')
+  })
+
+  it('mes cerrado: sin proyección y promedio sobre los días del mes', () => {
+    const r = resumenParaAnalisis(estado('2026-02', [gasto('Walmart', 280, 'c1')]), anterior)
+    expect(r).not.toContain('Mes en curso')
+    expect(r).toContain('Promedio diario: $10.00')
   })
 
   it('maneja mes anterior vacío', () => {

@@ -34,7 +34,8 @@ export function resumenParaAnalisis(actual: Estado, anterior: Estado): string {
     const presupuesto = presu
       ? `, presupuesto ${dinero(presu)} (${porcentaje(f.total, presu)}% usado)`
       : ''
-    return `- ${nombreCat(f.clave)}: ${dinero(f.total)} (${porcentaje(f.total, totalA)}% del total)${presupuesto}; vs mes anterior ${cambio(f.total, previoPorCat.get(f.clave) ?? 0)}`
+    const compras = actual.gastos.filter((g) => g.categoriaId === f.clave).length
+    return `- ${nombreCat(f.clave)}: ${dinero(f.total)} (${porcentaje(f.total, totalA)}% del total, ${compras} compras)${presupuesto}; vs mes anterior ${cambio(f.total, previoPorCat.get(f.clave) ?? 0)}`
   })
   const lineasTipo = acumular(actual.gastos, (g) => g.tipoPagoId).map(
     (f) =>
@@ -45,9 +46,28 @@ export function resumenParaAnalisis(actual: Estado, anterior: Estado): string {
     .slice(0, MAX_GRANDES)
     .map((g) => `- ${linea(g.nombre)}: ${dinero(g.monto)} (${g.fecha})`)
 
+  const [anio, mesNum] = actual.mes.split('-').map(Number) as [number, number]
+  const diasMes = new Date(Date.UTC(anio, mesNum, 0)).getUTCDate()
+  const enCurso = actual.hoy.startsWith(actual.mes)
+  const dias = enCurso ? Number(actual.hoy.slice(8, 10)) : diasMes
+  const conPresu = categorias.filter((c) => c.presupuesto)
+  const presuTotal = sumar(conPresu.map((c) => c.presupuesto ?? 0))
+  const gastadoPresu = sumar(
+    actual.gastos.filter((g) => conPresu.some((c) => c.id === g.categoriaId)).map((g) => g.monto),
+  )
+
   return [
     `Mes analizado: ${etiquetaMes(actual.mes)}. Gastos: ${actual.gastos.length}.`,
     `Total del mes: ${dinero(totalA)}. Mes anterior (${etiquetaMes(anterior.mes)}): ${dinero(totalP)} (${cambio(totalA, totalP)}).`,
+    `Promedio diario: ${dinero(totalA / dias)}.`,
+    ...(enCurso
+      ? [`Mes en curso: día ${dias} de ${diasMes}; proyección al cierre ${dinero((totalA / dias) * diasMes)}.`]
+      : []),
+    ...(conPresu.length
+      ? [
+          `Presupuesto total: ${dinero(presuTotal)}; gastado en categorías con presupuesto: ${dinero(gastadoPresu)} (${porcentaje(gastadoPresu, presuTotal)}%).`,
+        ]
+      : []),
     '',
     'Por categoría:',
     ...lineasCat,
@@ -62,13 +82,18 @@ export function resumenParaAnalisis(actual: Estado, anterior: Estado): string {
 
 export const instruccionAnalisis = (): string =>
   [
-    'Eres un asesor de finanzas del hogar en México. Recibes el resumen de gastos de un mes y lo comparas con el mes anterior.',
+    'Eres un asesor financiero del hogar en México. Recibes el resumen de gastos de un mes y lo comparas con el mes anterior.',
     '',
-    'Reglas:',
-    '- Da de 3 a 5 recomendaciones concretas para ahorrar o gastar mejor.',
-    '- Cita montos y categorías del resumen (en pesos mexicanos). No inventes datos que no estén en el resumen.',
-    '- titulo: frase corta (máximo 60 caracteres).',
-    '- detalle: 1 a 3 oraciones, en español de México, con tono amable y práctico.',
+    'Método:',
+    '- diagnostico: resumen ejecutivo de 2 a 3 oraciones con el dato más relevante (tendencia vs mes anterior, proyección si el mes va en curso, presupuestos excedidos).',
+    '- recomendaciones: de 3 a 5, ordenadas por impacto. Prioriza presupuestos excedidos, categorías que más crecieron y gastos hormiga (muchas compras pequeñas).',
+    '- titulo: frase corta (máximo 60 caracteres). detalle: 1 a 3 oraciones con montos y categorías del resumen.',
+    '- accion: un paso concreto y medible para esta semana o este mes (ej. "fijar tope de $X en ...").',
+    '- ahorroMensual: estimado realista en MXN basado solo en los montos del resumen (0 si no aplica).',
+    '- prioridad: alta, media o baja según el impacto.',
+    '',
+    'No inventes datos que no estén en el resumen. No recomiendes productos financieros ni inversiones.',
+    'Usa español de México, con tono profesional y claro.',
     '',
     'Responde únicamente con el JSON pedido.',
   ].join('\n')
@@ -76,14 +101,21 @@ export const instruccionAnalisis = (): string =>
 export const ESQUEMA_ANALISIS = {
   type: 'OBJECT',
   properties: {
+    diagnostico: { type: 'STRING' },
     recomendaciones: {
       type: 'ARRAY',
       items: {
         type: 'OBJECT',
-        properties: { titulo: { type: 'STRING' }, detalle: { type: 'STRING' } },
-        required: ['titulo', 'detalle'],
+        properties: {
+          titulo: { type: 'STRING' },
+          detalle: { type: 'STRING' },
+          accion: { type: 'STRING' },
+          ahorroMensual: { type: 'NUMBER' },
+          prioridad: { type: 'STRING', enum: ['alta', 'media', 'baja'] },
+        },
+        required: ['titulo', 'detalle', 'accion', 'ahorroMensual', 'prioridad'],
       },
     },
   },
-  required: ['recomendaciones'],
+  required: ['diagnostico', 'recomendaciones'],
 } as const
